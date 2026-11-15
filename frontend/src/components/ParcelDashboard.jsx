@@ -93,23 +93,23 @@ export default function ParcelDashboard({ lang = 'en', advisoryData, onNewSearch
           </div>
         </div>
 
-        {/* ─── PROMINENT TASK 1 AGENTIC LIFECYCLE & MODEL ROUTING BANNER (Concern 2 Fix) ─── */}
-        <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 text-white rounded-3xl p-4 sm:p-5 shadow-sm border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        {/* ─── PROMINENT TASK 1 AGENTIC LIFECYCLE & MODEL ROUTING BANNER (Light Theme) ─── */}
+        <div className="bg-gradient-to-r from-emerald-50/90 via-white to-teal-50/90 rounded-3xl p-4 sm:p-5 shadow-xs border border-emerald-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-sm shrink-0 border border-emerald-500/30">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-sm shrink-0 border border-emerald-200 shadow-2xs">
               ⚡
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-bold text-sm text-white">Task 1 Multi-Model Agentic System</span>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-mono border border-emerald-500/30 font-semibold">
+                <span className="font-bold text-sm text-slate-900">Task 1 Multi-Model Agentic System</span>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-100/90 text-emerald-900 text-[10px] font-mono border border-emerald-300 font-semibold">
                   9 Dispatched Agents
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-[10px] font-mono border border-blue-500/30 font-semibold">
+                <span className="px-2 py-0.5 rounded-full bg-blue-100/90 text-blue-900 text-[10px] font-mono border border-blue-300 font-semibold">
                   Ministral-8B + Gemini 3.5 + Claude 3.5
                 </span>
               </div>
-              <p className="text-xs text-slate-300 mt-0.5">
+              <p className="text-xs text-slate-600 mt-1">
                 Zero-trust LangGraph DAG • DPDP Act 2023 2-decimal GPS fuzzing • Total latency: ~210 ms • Cost: $0.00018
               </p>
             </div>
@@ -117,7 +117,7 @@ export default function ParcelDashboard({ lang = 'en', advisoryData, onNewSearch
 
           <button
             onClick={() => setIsTraceOpen(true)}
-            className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all shadow-md shrink-0 cursor-pointer"
+            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all shadow-sm hover:shadow-md active:scale-95 shrink-0 cursor-pointer"
           >
             <Sparkles className="w-4 h-4 fill-current" />
             <span>Inspect Agent Trace & Routing</span>
