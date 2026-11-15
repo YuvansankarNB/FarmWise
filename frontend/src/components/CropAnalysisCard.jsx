@@ -1,4 +1,4 @@
-import { Leaf, Eye, ShieldCheck, Check, Sparkles, AlertCircle, Camera, ExternalLink } from 'lucide-react';
+import { Leaf, Eye, ShieldCheck, Check, Sparkles, AlertCircle, AlertTriangle, PhoneCall, Camera, ExternalLink } from 'lucide-react';
 import { translations, tCrop, tStage, tHealth, tVisualFeature } from '../utils/translations';
 import { getMediaUrl } from '../services/api';
 
@@ -15,6 +15,18 @@ export default function CropAnalysisCard({ cropAnalysis, parcel, lang = 'en', on
     "Adequate chlorophyll reflectance",
     "Proper row spacing and tiller density"
   ];
+
+  // Cross-Modal Divergence Detection: When Cadastral Revenue Record != Computer Vision Identification
+  const recordedCropClean = (parcel?.recorded_crop || '').toLowerCase().trim();
+  const identifiedCropClean = (crop || '').toLowerCase().trim();
+  const hasDivergence = recordedCropClean && identifiedCropClean && 
+    !recordedCropClean.includes(identifiedCropClean) && 
+    !identifiedCropClean.includes(recordedCropClean) &&
+    recordedCropClean !== "agricultural crop" &&
+    identifiedCropClean !== "field specimen / ground survey stand";
+
+  // Calibrated Abstention: When confidence is below threshold, recommend official human expert referral
+  const isAbstention = confidence < 0.78;
 
   return (
     <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex flex-col justify-between">
@@ -66,6 +78,41 @@ export default function CropAnalysisCard({ cropAnalysis, parcel, lang = 'en', on
             </span>
           </div>
         </div>
+
+        {/* ─── CROSS-MODAL CADASTRAL DIVERGENCE DETECTION (Enhancement 1) ─── */}
+        {hasDivergence && (
+          <div className="mb-4 p-3.5 bg-amber-50/90 border border-amber-300 rounded-2xl flex items-start gap-3 shadow-2xs">
+            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="text-xs">
+              <div className="flex items-center gap-1.5 font-bold text-amber-950 uppercase tracking-wide text-[11px]">
+                <span>{lang === 'ta' ? 'நில ஆவண முரண்பாடு கண்டறியப்பட்டது' : 'Cross-Modal Cadastral Divergence Detected'}</span>
+                <span className="px-1.5 py-0.5 rounded bg-amber-200/80 text-amber-900 text-[10px] font-mono">PMFBY Audit</span>
+              </div>
+              <p className="text-amber-800 mt-1 leading-relaxed">
+                {lang === 'ta' 
+                  ? `நில வருவாய் பதிவு: "${tCrop(parcel.recorded_crop, 'ta')}" | களப் பட ஆய்வு: "${tCrop(crop, 'ta')}". நில பயன்பாட்டு மாற்றம் அல்லது PMFBY பயிர் காப்பீட்டு சரிபார்ப்புக்காக கொடியிடப்பட்டுள்ளது.`
+                  : `Land Revenue Cadastre: "${parcel.recorded_crop}" vs Visual Canopy: "${crop}". Flagged for crop-insurance verification & land-use divergence audit.`}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* ─── CALIBRATED ABSTENTION HANDOFF (Enhancement 5) ─── */}
+        {isAbstention && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-2xl flex items-start gap-2.5">
+            <PhoneCall className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+            <div className="text-xs text-red-900">
+              <span className="font-bold block">
+                {lang === 'ta' ? 'குறைந்த மாதிரி நம்பிக்கை — நேரடி மனித வழிகாட்டுதல் தேவை' : 'Low Model Confidence — Calibrated Abstention'}
+              </span>
+              <p className="text-red-700 mt-0.5">
+                {lang === 'ta'
+                  ? 'தெளிவற்ற படத்தால் கணிப்பு நம்பிக்கை குறைவாக உள்ளது. தயவுசெய்து கிசான் கால் சென்டர் 1800-180-1551 அல்லது சிவகிரி வேளாண் விரிவாக்க அலுவலரை தொடர்பு கொள்ளவும்.'
+                  : 'Foliar visibility insufficient for deterministic advice. Please refer to Kisan Call Centre (1800-180-1551) or Sivagiri Block Agricultural Officer.'}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Visual Features Breakdown */}
         <div className="space-y-2 mb-4">

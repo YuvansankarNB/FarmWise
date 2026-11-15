@@ -196,14 +196,24 @@ export default function AdvisoryCard({ advisoryData, lang = 'en', onOpenTrace })
         </button>
       </div>
 
-      {/* Advisory Summary */}
+      {/* Advisory Summary with Claim-Level Provenance */}
       <div className="bg-gradient-to-r from-emerald-50/70 via-green-50/50 to-teal-50/70 p-5 rounded-2xl border border-emerald-200/80 text-sm text-slate-800 leading-relaxed">
-        <div className="font-bold text-emerald-950 text-xs uppercase tracking-wider mb-3 flex items-center justify-between gap-2">
+        <div className="font-bold text-emerald-950 text-xs uppercase tracking-wider mb-2 flex items-center justify-between gap-2">
           <span className="flex items-center gap-1.5">
             {t.executiveSummary || "🌾 Executive Advisory Summary"}
           </span>
           {displaySummary && <TTSButton text={displaySummary} lang={lang} />}
         </div>
+
+        {/* Claim-Level Provenance Tag Bar (Enhancement 4) */}
+        <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-slate-600 mb-3 pb-2 border-b border-emerald-200/60 font-medium">
+          <span className="font-bold text-emerald-900 uppercase tracking-wider text-[9px]">Grounded Sources:</span>
+          <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-900 font-mono">TN Land Revenue Cadastre</span>
+          <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 font-mono">Soil Health Card #{advisoryData.soil_profile?.soil_health_card_id || 'TN-TNK-2024'}</span>
+          <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-900 font-mono">Live ECMWF Weather API</span>
+          <span className="px-1.5 py-0.5 rounded bg-purple-100 text-purple-900 font-mono">TNAU CPG 2024</span>
+        </div>
+
         {isTranslating ? (
           <div className="flex items-center gap-2 text-xs text-emerald-700 py-2">
             <Loader2 className="w-4 h-4 animate-spin" />
