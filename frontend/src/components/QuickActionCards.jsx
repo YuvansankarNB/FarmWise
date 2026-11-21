@@ -1,8 +1,8 @@
 import React from 'react';
-import { Camera, Bot, Map, TrendingUp } from 'lucide-react';
+import { Camera, Map, TrendingUp } from 'lucide-react';
 import { translations } from '../utils/translations';
 
-export default function QuickActionCards({ lang, onOpenUpload, onOpenChat, onSelectDefaultSurvey, onOpenMarket, inline = false }) {
+export default function QuickActionCards({ lang, onOpenUpload, onSelectDefaultSurvey, onOpenMarket, inline = false }) {
   const t = translations[lang] || translations.en;
 
   const actions = [
@@ -38,23 +38,10 @@ export default function QuickActionCards({ lang, onOpenUpload, onOpenChat, onSel
       textColor: "text-purple-900",
       onClick: onOpenMarket,
       tag: t.tagMarket || "eNAM Benchmarks"
-    },
-    {
-      title: t.actionAdvisor,
-      desc: lang === 'ta' ? "வலதுபுறம் உள்ள நேரடி ஆலோசகரிடம் கேட்கவும்" : "Interactive Copilot on right side",
-      icon: Bot,
-      color: "from-blue-500 to-indigo-600",
-      bgColor: "bg-blue-50/60 hover:bg-blue-50",
-      borderColor: "border-blue-200/80",
-      textColor: "text-blue-900",
-      onClick: onOpenChat,
-      tag: t.tagAdvisor || "Live Chatbot"
     }
   ];
 
-  const gridClass = inline
-    ? "grid grid-cols-2 sm:grid-cols-4 gap-3"
-    : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4";
+  const gridClass = "grid grid-cols-1 sm:grid-cols-3 gap-3.5";
 
   const containerClass = inline
     ? "w-full pt-2"

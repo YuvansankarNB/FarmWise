@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sprout, ShieldCheck, Cpu, CloudSun, MessageSquare, Globe2 } from 'lucide-react';
+import { Sprout, ShieldCheck, Cpu, CloudSun } from 'lucide-react';
 import { translations } from '../utils/translations';
 
 export default function Navbar({ lang, setLang, onOpenChat, onResetHome }) {
@@ -48,7 +48,7 @@ export default function Navbar({ lang, setLang, onOpenChat, onResetHome }) {
             </div>
           </div>
 
-          {/* Right actions: Language toggle & Chat CTA */}
+          {/* Right actions: Language toggle */}
           <div className="flex items-center gap-3">
             {/* Language Selector */}
             <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200 text-xs font-medium">
@@ -77,16 +77,6 @@ export default function Navbar({ lang, setLang, onOpenChat, onResetHome }) {
                 हिंदी
               </button>
             </div>
-
-            {/* AI Advisor Button */}
-            <button
-              onClick={onOpenChat}
-              className="flex items-center gap-2 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs sm:text-sm font-medium shadow-sm hover:shadow transition-all active:scale-95"
-            >
-              <MessageSquare className="w-4 h-4" />
-              <span className="hidden sm:inline">{t.actionAdvisor}</span>
-              <span className="sm:hidden">Advisor</span>
-            </button>
           </div>
         </div>
       </div>

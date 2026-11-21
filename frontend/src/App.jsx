@@ -199,11 +199,6 @@ export default function App() {
                 <QuickActionCards
                   lang={lang}
                   onOpenUpload={() => setIsUploadOpen(true)}
-                  onOpenChat={() => {
-                    const inputEl = document.getElementById('live-chatbot-input');
-                    inputEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    inputEl?.focus();
-                  }}
                   onSelectDefaultSurvey={loadParcelAdvisory}
                   onOpenMarket={() => setIsMarketOpen(true)}
                   inline={true}
