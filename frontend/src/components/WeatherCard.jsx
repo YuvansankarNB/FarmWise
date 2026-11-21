@@ -41,9 +41,6 @@ export default function WeatherCard({ weather, lang = 'en' }) {
             </p>
           </div>
         </div>
-        <span className="text-[11px] font-semibold px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full border border-blue-200 shrink-0">
-          {t.liveMeteoBadge || "Live Open-Meteo"}
-        </span>
       </div>
 
       {/* Main Stats Grid */}
