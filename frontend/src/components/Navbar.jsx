@@ -49,14 +49,6 @@ export default function Navbar({ lang, setLang, onOpenChat, onResetHome }) {
               >
                 தமிழ்
               </button>
-              <button
-                onClick={() => setLang('hi')}
-                className={`px-2.5 py-1 rounded-md transition-all ${
-                  lang === 'hi' ? 'bg-white text-emerald-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                हिंदी
-              </button>
             </div>
           </div>
         </div>
