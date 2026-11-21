@@ -161,8 +161,7 @@ export default function App() {
   const handleOpenChat = () => {
     const inputEl = document.getElementById('live-chatbot-input');
     if (inputEl) {
-      inputEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      inputEl.focus();
+      inputEl.focus({ preventScroll: true });
     } else {
       setIsChatOpen(true);
     }

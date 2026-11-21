@@ -57,6 +57,7 @@ export default function ChatbotDrawer({ isOpen = true, onClose, activeParcel, la
     });
   }, [activeParcel?.survey_number, lang]);
 
+  const messagesContainerRef = useRef(null);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const mediaRecorderRef = useRef(null);
@@ -64,7 +65,13 @@ export default function ChatbotDrawer({ isOpen = true, onClose, activeParcel, la
   const recognitionRef = useRef(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Only scroll the inner message container, NEVER scroll the outer window/page
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
   };
 
   useEffect(() => { scrollToBottom(); }, [messages, isLoading]);
@@ -336,7 +343,10 @@ export default function ChatbotDrawer({ isOpen = true, onClose, activeParcel, la
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">
+      <div 
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50 overscroll-contain"
+      >
         {messages.map((msg, idx) => (
           <div key={idx} className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
             <div
@@ -393,7 +403,11 @@ export default function ChatbotDrawer({ isOpen = true, onClose, activeParcel, la
         {(lang === 'ta' ? QUICK_PROMPTS_TA : QUICK_PROMPTS).map((qp, idx) => (
           <button
             key={idx}
-            onClick={() => handleSend(qp)}
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              handleSend(qp);
+            }}
             className="text-[11px] whitespace-nowrap px-2.5 py-1 bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-emerald-800 rounded-full border border-slate-200 hover:border-emerald-300 transition-colors cursor-pointer"
           >
             {qp}
@@ -466,14 +480,23 @@ export default function ChatbotDrawer({ isOpen = true, onClose, activeParcel, la
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
             placeholder={lang === 'ta' ? 'கேள்வியை தமிழில் கேட்கலாம் (எ.கா. உரம், பூச்சி)...' : 'Ask about fertilizer, pests, spray or mandi rates...'}
             className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/10"
           />
 
           {/* Send */}
           <button
-            onClick={() => handleSend()}
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              handleSend();
+            }}
             disabled={isLoading || (!input.trim() && !selectedImage)}
             className="p-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white rounded-xl shadow-xs transition-colors cursor-pointer"
           >
