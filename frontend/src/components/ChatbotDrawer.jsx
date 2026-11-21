@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { X, Send, Bot, Camera, Loader2, Cpu, ShieldCheck, Mic, MicOff, Globe, RotateCcw } from 'lucide-react';
+import { X, Send, Bot, Camera, Loader2, Cpu, ShieldCheck, Mic, MicOff, Globe, RotateCcw, Volume2, VolumeX } from 'lucide-react';
 import { api } from '../services/api';
 
 const QUICK_PROMPTS = [
@@ -40,6 +40,8 @@ export default function ChatbotDrawer({ isOpen = true, onClose, activeParcel, la
   // Voice / language state
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [speakingIdx, setSpeakingIdx] = useState(null);
+  const [autoSpeak, setAutoSpeak] = useState(false);
 
   useEffect(() => {
     if (propLang) {
@@ -77,6 +79,7 @@ export default function ChatbotDrawer({ isOpen = true, onClose, activeParcel, la
   useEffect(() => { scrollToBottom(); }, [messages, isLoading]);
 
   const handleResetChat = () => {
+    stopSpeaking();
     setMessages([getWelcomeMessage(lang, activeParcel)]);
     setInput('');
     removeImage();
@@ -90,6 +93,72 @@ export default function ChatbotDrawer({ isOpen = true, onClose, activeParcel, la
       .replace(/^[-*_]{3,}$/gm, '')
       .trim();
   };
+
+  // ─── Text to Speech (Tamil & English) ──────────────────────────────────────
+  const stopSpeaking = useCallback(() => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    setSpeakingIdx(null);
+  }, []);
+
+  const speakText = useCallback((text, index) => {
+    if (!('speechSynthesis' in window)) {
+      alert('Text-to-speech is not supported on this browser.');
+      return;
+    }
+
+    if (speakingIdx === index) {
+      stopSpeaking();
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+
+    // Clean markdown, symbols, and emojis for smooth, natural voice narration
+    const cleanSpeech = text
+      .replace(/[\*\#\_\~\[\]\(\)\<\>]/g, ' ')
+      .replace(/•/g, ', ')
+      .replace(/[\u{1F300}-\u{1F9FF}]/gu, '') // remove emojis
+      .replace(/https?:\/\/\S+/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (!cleanSpeech) return;
+
+    // Detect language: check for Tamil unicode range [\u0B80-\u0BFF]
+    const hasTamil = /[\u0B80-\u0BFF]/.test(cleanSpeech);
+    const targetLang = hasTamil ? 'ta-IN' : 'en-IN';
+
+    const utterance = new SpeechSynthesisUtterance(cleanSpeech);
+    utterance.lang = targetLang;
+    utterance.rate = hasTamil ? 0.95 : 1.0;
+    utterance.pitch = 1.0;
+
+    const voices = window.speechSynthesis.getVoices();
+    if (voices && voices.length > 0) {
+      const matchVoice = voices.find(v => v.lang.replace('_', '-') === targetLang) ||
+                         voices.find(v => v.lang.startsWith(targetLang.split('-')[0])) ||
+                         voices.find(v => targetLang.startsWith('en') && v.lang.startsWith('en'));
+      if (matchVoice) {
+        utterance.voice = matchVoice;
+      }
+    }
+
+    utterance.onstart = () => setSpeakingIdx(index);
+    utterance.onend = () => setSpeakingIdx(null);
+    utterance.onerror = () => setSpeakingIdx(null);
+
+    window.speechSynthesis.speak(utterance);
+  }, [speakingIdx, stopSpeaking]);
+
+  useEffect(() => {
+    return () => {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
 
   // ─── Image helpers ─────────────────────────────────────────────────────────
   const handleImageSelect = (e) => {
@@ -152,7 +221,13 @@ export default function ChatbotDrawer({ isOpen = true, onClose, activeParcel, la
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
 
-      setMessages(prev => [...prev, botMsg]);
+      setMessages(prev => {
+        const nextMsgs = [...prev, botMsg];
+        if (autoSpeak) {
+          setTimeout(() => speakText(finalText, nextMsgs.length - 1), 200);
+        }
+        return nextMsgs;
+      });
     } catch (err) {
       console.error(err);
       setMessages(prev => [
@@ -314,8 +389,18 @@ export default function ChatbotDrawer({ isOpen = true, onClose, activeParcel, la
           </div>
         </div>
 
-        {/* Controls: Reset + Language toggle + Close (if drawer) */}
+        {/* Controls: Auto-voice toggle + Reset + Language toggle + Close (if drawer) */}
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setAutoSpeak(prev => !prev)}
+            className={`p-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1 text-xs font-medium ${
+              autoSpeak ? 'bg-amber-400 text-slate-900 font-bold shadow-xs' : 'bg-white/10 hover:bg-white/20 text-emerald-100 hover:text-white'
+            }`}
+            title={autoSpeak ? (lang === 'ta' ? 'தானியங்கி குரல் ஆன் (கிளிக் செய்து ஆஃப் செய்யலாம்)' : 'Auto-Read Responses ON') : (lang === 'ta' ? 'தானியங்கி குரல் ஆஃப் (கிளிக் செய்து ஆன் செய்யலாம்)' : 'Auto-Read Responses OFF')}
+          >
+            {autoSpeak ? <Volume2 className="w-4 h-4 text-slate-900" /> : <VolumeX className="w-4 h-4" />}
+            <span className="hidden sm:inline text-[11px]">{autoSpeak ? 'Audio ON' : 'Audio OFF'}</span>
+          </button>
           <button
             onClick={handleResetChat}
             className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-emerald-100 hover:text-white transition-colors cursor-pointer"
@@ -364,8 +449,30 @@ export default function ChatbotDrawer({ isOpen = true, onClose, activeParcel, la
               <p className="whitespace-pre-line">
                 {cleanDisplayText(msg.text) || msg.text || (lang === 'ta' ? 'வணக்கம் விவசாயி அவர்களே! விவரங்கள் பெறப்பட்டுள்ளன.' : 'Hello Farmer! Information retrieved.')}
               </p>
+              {msg.sender === 'bot' && (
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => speakText(msg.text, idx)}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                      speakingIdx === idx
+                        ? 'bg-emerald-600 text-white shadow-xs animate-pulse ring-2 ring-emerald-400'
+                        : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200'
+                    }`}
+                    title={speakingIdx === idx ? (lang === 'ta' ? 'குரலை நிறுத்து' : 'Stop voice') : (lang === 'ta' ? 'பதிலை குரலில் கேளுங்கள்' : 'Listen to response')}
+                  >
+                    {speakingIdx === idx ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                    <span>{speakingIdx === idx ? (lang === 'ta' ? 'நிறுத்து' : 'Stop Voice') : (lang === 'ta' ? 'குரலில் கேட்க' : 'Listen')}</span>
+                  </button>
+                  {speakingIdx === idx && (
+                    <span className="text-[10px] text-emerald-700 font-medium animate-pulse">
+                      🔊 {lang === 'ta' ? 'பேசுகிறது...' : 'Speaking...'}
+                    </span>
+                  )}
+                </div>
+              )}
               {msg.sender === 'bot' && msg.modelUsed && (
-                <div className="mt-3 pt-2.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-1 text-[10px] text-slate-500">
+                <div className="mt-2.5 pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-1 text-[10px] text-slate-500">
                   <div className="flex items-center gap-1 text-emerald-700 font-semibold">
                     <Cpu className="w-3 h-3" />
                     <span>{msg.modelUsed}</span>
