@@ -27,15 +27,20 @@ WEATHER_CODE_MAP = {
 class WeatherService:
     @staticmethod
     def get_weather(lat: float, lon: float) -> WeatherData:
+        lat_clean = round(float(lat), 4)
+        lon_clean = round(float(lon), 4)
         url = (
             f"https://api.open-meteo.com/v1/forecast?"
-            f"latitude={lat}&longitude={lon}&"
+            f"latitude={lat_clean}&longitude={lon_clean}&"
             f"current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m&"
             f"daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weather_code&"
             f"timezone=auto"
         )
+        headers = {
+            "User-Agent": "FarmWise-AI-Platform/1.0 (Agriculture-Intelligence; Contact: admin@farmwise.ai)"
+        }
         try:
-            resp = requests.get(url, timeout=6)
+            resp = requests.get(url, headers=headers, timeout=5)
             if resp.status_code == 200:
                 data = resp.json()
                 current = data.get("current", {})

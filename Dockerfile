@@ -1,6 +1,13 @@
-# Use official lightweight Python image
-FROM python:3.12-slim
+# Stage 1: Build Frontend
+FROM node:20-alpine AS frontend-builder
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
+RUN npm ci || npm install
+COPY frontend ./
+RUN npm run build
 
+# Stage 2: Production Python Backend + Frontend Assets
+FROM python:3.12-slim
 
 WORKDIR /app
 
@@ -20,6 +27,9 @@ RUN pip install --no-cache-dir -r /app/backend/requirements.txt
 # Copy backend application code and datasets
 COPY backend /app/backend
 COPY Datasets /app/Datasets
+
+# Copy built frontend static dist from Stage 1
+COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
 
 # Expose standard port 8000
 EXPOSE 8000
