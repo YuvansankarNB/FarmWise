@@ -206,18 +206,13 @@ export default function App() {
 
               {/* Right Column (5 cols): Directly Visible Live Farmer AI Advisor Chatbot */}
               <div className="lg:col-span-5 sticky top-20">
-                <div className="mb-2 flex items-center justify-between px-1">
-                  <div className="flex items-center gap-2">
-                    <span className="relative flex h-2.5 w-2.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                    </span>
-                    <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                      {lang === 'ta' ? 'நேரலை AI வேளாண் ஆலோசகர்' : 'Live AI Farm Advisor'}
-                    </span>
-                  </div>
-                  <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                    {lang === 'ta' ? 'பூஜ்ஜிய பிழை • TNAU வழிகாட்டி' : 'Zero Hallucination • TNAU Grounded'}
+                <div className="mb-2 flex items-center gap-2 px-1">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                  </span>
+                  <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                    {lang === 'ta' ? 'நேரலை AI வேளாண் ஆலோசகர்' : 'Live AI Farm Advisor'}
                   </span>
                 </div>
 

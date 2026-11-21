@@ -1,15 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, MapPin, ArrowRight, Loader2, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Search, MapPin, ArrowRight, Loader2, CheckCircle2 } from 'lucide-react';
 import { translations, tCrop } from '../utils/translations';
 import { api } from '../services/api';
 
 const FEATURED_SURVEYS = [
   { no: "1342", crop: "Coconut", village: "Sivagiri", stage: "Full Growth" },
   { no: "1476", crop: "Rice (Paddy)", village: "Sivagiri", stage: "Vegetation" },
-  { no: "870", crop: "Rice (Paddy)", village: "Sivagiri", stage: "Vegetation" },
-  { no: "584", crop: "Coconut", village: "Sivagiri", stage: "Full Growth" },
-  { no: "386", crop: "Maize", village: "Sivagiri", stage: "Full Growth" },
-  { no: "876", crop: "Groundnut", village: "Tenkasi", stage: "Vegetation" },
 ];
 
 
@@ -81,12 +77,6 @@ export default function HeroSearch({ lang, onSelectSurvey, isLoading, inline = f
 
   const content = (
     <div className={inline ? "text-left space-y-4" : "relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center"}>
-      {/* Badge */}
-      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-100/80 text-emerald-800 text-xs font-semibold shadow-2xs border border-emerald-200">
-        <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-        <span>{lang === 'ta' ? 'நில அளவிலான பல்-மாதிரி வேளாண் நுண்ணறிவு அமைப்பு' : 'Parcel-Level Multi-Model Agronomic System'}</span>
-      </div>
-
       {/* Heading */}
       <h1 className={inline ? "text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight" : "text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight mb-3"}>
         {t.subtitle}

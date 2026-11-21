@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sprout, ShieldCheck, Cpu, CloudSun } from 'lucide-react';
+import { Sprout } from 'lucide-react';
 import { translations } from '../utils/translations';
 
 export default function Navbar({ lang, setLang, onOpenChat, onResetHome }) {
@@ -22,29 +22,10 @@ export default function Navbar({ lang, setLang, onOpenChat, onResetHome }) {
                 <span className="text-xl font-bold tracking-tight text-slate-900 group-hover:text-emerald-700 transition-colors">
                   Farmwise<span className="text-emerald-600">AI</span>
                 </span>
-                <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full">
-                  {lang === 'ta' ? 'பணி 1 முகமை' : 'Task 1 Agentic'}
-                </span>
               </div>
               <p className="text-xs text-slate-500 hidden sm:block">
                 {lang === 'ta' ? 'பல்-மாதிரி வேளாண்மை நுண்ணறிவு தளம்' : 'Multi-Model Agricultural Intelligence Platform'}
               </p>
-            </div>
-          </div>
-
-          {/* Center info: Model badges */}
-          <div className="hidden lg:flex items-center gap-3 text-xs">
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 rounded-full text-slate-700 border border-slate-200">
-              <Cpu className="w-3.5 h-3.5 text-emerald-600" />
-              <span>{lang === 'ta' ? 'திட்டமிடுதல்: கிளாட் / ஜெமினி' : 'Planner: Claude 3.5 / Gemini 3.8'}</span>
-            </div>
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 rounded-full text-slate-700 border border-slate-200">
-              <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
-              <span>{lang === 'ta' ? 'சரிபார்ப்பாளர்: இயங்குகிறது' : 'Verifier Critic: Active'}</span>
-            </div>
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 rounded-full text-amber-800 border border-amber-200">
-              <CloudSun className="w-3.5 h-3.5 text-amber-600" />
-              <span>AWS ap-south-1</span>
             </div>
           </div>
 
