@@ -158,6 +158,16 @@ export default function App() {
     loadParcelAdvisory("1342");
   };
 
+  const handleOpenChat = () => {
+    const inputEl = document.getElementById('live-chatbot-input');
+    if (inputEl) {
+      inputEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      inputEl.focus();
+    } else {
+      setIsChatOpen(true);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col selection:bg-emerald-500 selection:text-white">
       {/* Top Navigation */}
@@ -165,29 +175,67 @@ export default function App() {
         <Navbar
           lang={lang}
           setLang={setLang}
-          onOpenChat={() => setIsChatOpen(true)}
+          onOpenChat={handleOpenChat}
           onResetHome={handleResetHome}
         />
       </div>
 
       {/* Main Container */}
       <main className="flex-1">
-        {/* Hero Section with exact Survey Search */}
-        <div className="no-print">
-          <HeroSearch
-            lang={lang}
-            onSelectSurvey={loadParcelAdvisory}
-            isLoading={isLoading}
-          />
+        {/* Unified Hero: Simple Clean Farmer Operations (Left) + Live Interactive AI Chatbot (Right) */}
+        <div className="no-print bg-gradient-to-b from-emerald-50/80 via-white to-slate-50 border-b border-emerald-100/70 pt-6 pb-10">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+              
+              {/* Left Column (7 cols): Clean, Simple Farmer Operations & Search */}
+              <div className="lg:col-span-7 space-y-6">
+                <HeroSearch
+                  lang={lang}
+                  onSelectSurvey={loadParcelAdvisory}
+                  isLoading={isLoading}
+                  inline={true}
+                />
 
-          {/* Quick Action Tiles */}
-          <QuickActionCards
-            lang={lang}
-            onOpenUpload={() => setIsUploadOpen(true)}
-            onOpenChat={() => setIsChatOpen(true)}
-            onSelectDefaultSurvey={loadParcelAdvisory}
-            onOpenMarket={() => setIsMarketOpen(true)}
-          />
+                <QuickActionCards
+                  lang={lang}
+                  onOpenUpload={() => setIsUploadOpen(true)}
+                  onOpenChat={() => {
+                    const inputEl = document.getElementById('live-chatbot-input');
+                    inputEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    inputEl?.focus();
+                  }}
+                  onSelectDefaultSurvey={loadParcelAdvisory}
+                  onOpenMarket={() => setIsMarketOpen(true)}
+                  inline={true}
+                />
+              </div>
+
+              {/* Right Column (5 cols): Directly Visible Live Farmer AI Advisor Chatbot */}
+              <div className="lg:col-span-5 sticky top-20">
+                <div className="mb-2 flex items-center justify-between px-1">
+                  <div className="flex items-center gap-2">
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                    </span>
+                    <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                      {lang === 'ta' ? 'நேரலை AI வேளாண் ஆலோசகர்' : 'Live AI Farm Advisor'}
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                    {lang === 'ta' ? 'பூஜ்ஜிய பிழை • TNAU வழிகாட்டி' : 'Zero Hallucination • TNAU Grounded'}
+                  </span>
+                </div>
+
+                <ChatbotDrawer
+                  embedded={true}
+                  activeParcel={advisoryData?.parcel}
+                  lang={lang}
+                />
+              </div>
+
+            </div>
+          </div>
         </div>
 
         {/* Inline Error Toast (replaces browser alert) */}

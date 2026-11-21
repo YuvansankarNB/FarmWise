@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { X, Send, Bot, Camera, Loader2, Cpu, ShieldCheck, Mic, MicOff, Globe } from 'lucide-react';
+import { X, Send, Bot, Camera, Loader2, Cpu, ShieldCheck, Mic, MicOff, Globe, RotateCcw } from 'lucide-react';
 import { api } from '../services/api';
 
 const QUICK_PROMPTS = [
@@ -18,32 +18,44 @@ const QUICK_PROMPTS_TA = [
   "புகைப்படத்தைப் பார்த்து பயிரின் வளர்ச்சி நிலையை கூற முடியுமா?"
 ];
 
-export default function ChatbotDrawer({ isOpen, onClose, activeParcel, lang: propLang = 'en' }) {
-  const [messages, setMessages] = useState([
-    {
-      sender: 'bot',
-      text: propLang === 'ta'
-        ? "வணக்கம்! நான் உங்கள் ஃபார்ம்வைஸ் AI வேளாண் ஆலோசகர். பயிர் ஊட்டச்சத்து, பூச்சி கட்டுப்பாடு, வானிலை தெளிப்பு முன்னறிவிப்பு அல்லது மண்டி சந்தை விலைகள் பற்றி என்னிடம் கேட்கலாம். களப் புகைப்படத்தையும் பதிவேற்றலாம்!\n\n🎤 குறிப்பு: தமிழில் பேச மைக் பொத்தானைப் பயன்படுத்தவும்!"
-        : "Vanakkam / Namaste! I am your FarmwiseAI Agricultural Advisor. You can ask me questions about crop nutrient management, pest control, weather spray forecasts, or Mandi prices. You can also upload a field photo for multimodal crop analysis!\n\n🎤 Tip: Use the mic button to speak in Tamil or English!",
-      modelUsed: 'Planner (Claude/Gemini)',
-      confidence: 0.98,
-      sources: ['TNAU Crop Guide', 'ICAR', 'eNAM APMC'],
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    }
-  ]);
+const getWelcomeMessage = (l, parcel) => ({
+  sender: 'bot',
+  text: l === 'ta'
+    ? `வணக்கம் விவசாயி அவர்களே! நான் உங்கள் பார்ம்வைஸ் AI நேரடி வேளாண் ஆலோசகர்.${parcel?.survey_number ? ` (புல எண் #${parcel.survey_number} நில விவரங்கள் இணைக்கப்பட்டுள்ளன)` : ''}\n\nஉங்களுக்கு உதவக்கூடிய சேவைகள்:\n• உரம் & ஊட்டச்சத்து அட்டவணை (TNAU பரிந்துரைத்த யூரியா, பொட்டாஷ் அளவுகள்)\n• பூச்சி & நோய் கட்டுப்பாடு (இயற்கை NSKE & பாதுகாப்பு முறை)\n• வானிலை & மருந்து தெளிக்கும் நேரம் (மழை மற்றும் காற்றின் வேகம்)\n• நேரடி மண்டி சந்தை விலைகள் (தென்காசி, திருநெல்வேலி APMC)\n\n🎤 குறிப்பு: மைக் பொத்தானை அழுத்தி தமிழில் பேசலாம், அல்லது கீழே உள்ள பொத்தான்களை கிளிக் செய்யலாம்!`
+    : `Vanakkam Farmer! I am your FarmwiseAI Live Agricultural Advisor.${parcel?.survey_number ? ` (Survey Parcel #${parcel.survey_number} is actively linked)` : ''}\n\nI can help you with:\n• Fertilizer & Nutrient Schedules (TNAU / ICAR dosages of Urea, DAP, Potash)\n• Pest & Disease Diagnostics and Integrated Management\n• Micro-Climate & Safe Foliar Spray Windows\n• Live Mandi Commodity Market Prices (Tenkasi, Tirunelveli APMC)\n\n🎤 Tip: Click the microphone to speak in Tamil or English, or tap the quick buttons below!`,
+  modelUsed: 'Ministral-8B + TNAU RAG',
+  confidence: 0.99,
+  sources: ['TNAU Crop Guide 2024', 'ICAR-CPCRI', 'eNAM APMC Mandi'],
+  time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+});
+
+export default function ChatbotDrawer({ isOpen = true, onClose, activeParcel, lang: propLang = 'en', embedded = false }) {
+  const [lang, setLang] = useState(propLang || 'en');
+  const [messages, setMessages] = useState([getWelcomeMessage(propLang || 'en', activeParcel)]);
   const [input, setInput] = useState('');
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
   // Voice / language state
-  const [lang, setLang] = useState(propLang || 'en'); // 'en' or 'ta'
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
 
   useEffect(() => {
-    if (propLang) setLang(propLang);
+    if (propLang) {
+      setLang(propLang);
+    }
   }, [propLang]);
+
+  // Update initial message when activeParcel or lang changes if only 1 message
+  useEffect(() => {
+    setMessages(prev => {
+      if (prev.length <= 1) {
+        return [getWelcomeMessage(lang, activeParcel)];
+      }
+      return prev;
+    });
+  }, [activeParcel?.survey_number, lang]);
 
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -56,6 +68,12 @@ export default function ChatbotDrawer({ isOpen, onClose, activeParcel, lang: pro
   };
 
   useEffect(() => { scrollToBottom(); }, [messages, isLoading]);
+
+  const handleResetChat = () => {
+    setMessages([getWelcomeMessage(lang, activeParcel)]);
+    setInput('');
+    removeImage();
+  };
 
   const cleanDisplayText = (text) => {
     if (!text) return '';
@@ -261,11 +279,15 @@ export default function ChatbotDrawer({ isOpen, onClose, activeParcel, lang: pro
     else startRecording();
   };
 
-  if (!isOpen) return null;
+  if (!embedded && !isOpen) return null;
 
   // ─── Render ───────────────────────────────────────────────────────────────
+  const containerClasses = embedded
+    ? "w-full h-[620px] bg-white rounded-3xl border-2 border-emerald-300/90 shadow-xl flex flex-col overflow-hidden relative z-10 transition-all"
+    : "fixed inset-y-0 right-0 z-[2000] w-full max-w-lg bg-white shadow-2xl border-l border-slate-200 flex flex-col animate-fade-in";
+
   return (
-    <div className="fixed inset-y-0 right-0 z-[2000] w-full max-w-lg bg-white shadow-2xl border-l border-slate-200 flex flex-col">
+    <div className={containerClasses}>
 
       {/* Header */}
       <div className="p-4 bg-gradient-to-r from-emerald-800 to-green-700 text-white flex items-center justify-between shadow-xs">
@@ -274,17 +296,26 @@ export default function ChatbotDrawer({ isOpen, onClose, activeParcel, lang: pro
             <Bot className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h3 className="font-bold text-base leading-tight">FarmWise AI Advisor</h3>
+            <h3 className="font-bold text-base leading-tight">
+              {lang === 'ta' ? 'ஃபார்ம்வைஸ் AI ஆலோசகர்' : 'FarmWise AI Advisor'}
+            </h3>
             <p className="text-xs text-emerald-100 flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Multi-Model Multimodal Copilot</span>
-              {activeParcel && <span className="font-semibold text-white">• Survey #{activeParcel.survey_number}</span>}
+              <span>{lang === 'ta' ? 'நேரலை AI வழிகாட்டி' : 'Live Multi-Model Copilot'}</span>
+              {activeParcel && <span className="font-semibold text-white">• #{activeParcel.survey_number}</span>}
             </p>
           </div>
         </div>
 
-        {/* Language toggle + close */}
+        {/* Controls: Reset + Language toggle + Close (if drawer) */}
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleResetChat}
+            className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-emerald-100 hover:text-white transition-colors cursor-pointer"
+            title={lang === 'ta' ? 'புதிய உரையாடலை தொடங்கு' : 'Start Fresh Conversation'}
+          >
+            <RotateCcw className="w-4 h-4" />
+          </button>
           <button
             onClick={() => setLang(l => l === 'en' ? 'ta' : 'en')}
             className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 text-xs font-semibold transition-colors cursor-pointer"
@@ -293,12 +324,14 @@ export default function ChatbotDrawer({ isOpen, onClose, activeParcel, lang: pro
             <Globe className="w-3.5 h-3.5" />
             {lang === 'en' ? 'EN' : 'தமிழ்'}
           </button>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          {!embedded && onClose && (
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -429,11 +462,12 @@ export default function ChatbotDrawer({ isOpen, onClose, activeParcel, lang: pro
 
           {/* Text input */}
           <input
+            id="live-chatbot-input"
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            placeholder={lang === 'ta' ? 'உங்கள் கேள்வியை தமிழில் கேளுங்கள்...' : 'Ask about fertilizer, pests, weather or mandi rates...'}
+            placeholder={lang === 'ta' ? 'கேள்வியை தமிழில் கேட்கலாம் (எ.கா. உரம், பூச்சி)...' : 'Ask about fertilizer, pests, spray or mandi rates...'}
             className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/10"
           />
 
