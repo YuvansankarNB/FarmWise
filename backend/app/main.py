@@ -175,11 +175,13 @@ async def chatbot_advisor(
     saved_img_path = None
     s3_image_url = None
 
+    history = []
     if "application/json" in content_type:
         try:
             body = await request.json()
             message = body.get("message") or body.get("query", "")
             survey_number = body.get("survey_number")
+            history = body.get("history", [])
         except Exception:
             pass
     else:
@@ -187,6 +189,12 @@ async def chatbot_advisor(
             form = await request.form()
             message = form.get("message") or form.get("query", "")
             survey_number = form.get("survey_number")
+            raw_history = form.get("history")
+            if raw_history:
+                try:
+                    history = json.loads(raw_history)
+                except Exception:
+                    pass
             image = form.get("image")
             if image and hasattr(image, "filename") and image.filename:
                 ext = image.filename.split(".")[-1] if "." in image.filename else "jpg"
@@ -198,11 +206,12 @@ async def chatbot_advisor(
         except Exception:
             pass
 
-    # Call specialized conversational agent
+    # Call specialized conversational agent with multi-turn history
     chat_result = chat_agent.answer_question(
         query=message or "அக்ரானமி வழிகாட்டுதல்",
         survey_number=survey_number,
-        image_path=str(saved_img_path) if saved_img_path else None
+        image_path=str(saved_img_path) if saved_img_path else None,
+        history=history
     )
 
     # Resolve parcel if survey number is provided

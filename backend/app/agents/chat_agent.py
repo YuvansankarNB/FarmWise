@@ -137,10 +137,25 @@ class ChatbotAgent:
     def answer_question(
         query: str,
         survey_number: Optional[str] = None,
-        image_path: Optional[str] = None
+        image_path: Optional[str] = None,
+        history: Optional[List[Dict[str, str]]] = None
     ) -> Dict[str, Any]:
         start_time = time.time()
         q_lower = query.strip().lower()
+
+        # Multi-turn context resolution: expand follow-up questions using conversation history
+        effective_query = query
+        last_user_query = ""
+        if history and isinstance(history, list):
+            prior_user_turns = [h.get("content", "") for h in history if isinstance(h, dict) and h.get("role") == "user"]
+            if prior_user_turns:
+                last_user_query = prior_user_turns[-1].strip()
+
+        follow_up_patterns = ["why", "how", "when", "where", "what about", "which", "can i", "should i", "dosage", "dose", "rate", "cost", "அளவு", "எப்போது", "எப்படி", "ஏன்", "எங்கே", "மேலும்"]
+        is_short = len(query.split()) <= 6
+        if last_user_query and (is_short or any(f in q_lower for f in follow_up_patterns)):
+            effective_query = f"{last_user_query} {query}"
+            q_lower = effective_query.strip().lower()
 
         # 1. Language detection (Tamil script or phonetics)
         is_tamil = bool(re.search(r'[\u0b80-\u0bff]', query)) or any(

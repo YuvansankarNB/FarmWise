@@ -98,10 +98,17 @@ export default function ChatbotDrawer({ isOpen, onClose, activeParcel, lang: pro
     setIsLoading(true);
 
     try {
+      // Build conversation history for multi-turn contextual continuity
+      const chatHistory = messages.slice(-6).map(m => ({
+        role: m.sender === 'user' ? 'user' : 'assistant',
+        content: m.text
+      }));
+
       const res = await api.chatAdvisor(
         queryText || 'Analyze this crop image',
         activeParcel?.survey_number || null,
-        selectedImage
+        selectedImage,
+        chatHistory
       );
 
       const rawText = res.reply || res.response || res.message || res.answer || (typeof res === 'string' ? res : '');

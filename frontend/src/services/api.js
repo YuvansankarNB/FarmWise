@@ -1089,18 +1089,19 @@ CONFIDENCE: <0.85 to 0.99>`;
     };
   },
 
-  // AI Chatbot with optional photo
-  async chatAdvisor(message, surveyNumber = null, imageFile = null) {
+  // AI Chatbot with optional photo & multi-turn history
+  async chatAdvisor(message, surveyNumber = null, imageFile = null, history = []) {
     const sNo = surveyNumber || "1342";
     const parcel = DEFAULT_PARCELS[sNo] || DEFAULT_PARCELS["1342"];
     const currentCrop = _lastUploadedCropAnalysis?.crop_name || parcel.recorded_crop;
 
-    // 1. Try local/cloud backend with clean JSON payload
+    // 1. Try local/cloud backend with clean JSON payload (including multi-turn history)
     try {
       const chatPayload = {
         message: String(message || '').trim(),
         query: String(message || '').trim(),
         survey_number: sNo,
+        history: Array.isArray(history) ? history : [],
         language: /[\u0B80-\u0BFF]/.test(message) ? 'ta' : 'en',
         parcelContext: {
           surveyNumber: sNo,
@@ -1133,7 +1134,7 @@ CONFIDENCE: <0.85 to 0.99>`;
       console.warn("Backend chat notice; trying direct Gemini advisor fallback:", e);
     }
 
-    // 2. Direct Gemini 3.5 Flash-Lite fallback if backend is offline/Vercel
+    // 2. Direct Gemini 3.5 Flash-Lite fallback if backend is offline/Vercel (with multi-turn history)
     const geminiApiKey = getGeminiApiKey();
     if (geminiApiKey) {
       try {
@@ -1145,15 +1146,39 @@ Current Field & Land Context:
 - Soil Type: ${parcel.soil_profile.soil_type} (pH ${parcel.soil_profile.ph})
 
 Answer the farmer's question thoroughly, accurately, and compassionately based on TNAU recommendations.
+Remember previous conversation context and answer follow-up questions accurately.
 If the question is in Tamil, reply in clear, professional, friendly Tamil with bullet points.
 If the question is in English, reply in English.`;
+
+        // Format multi-turn conversation contents for Gemini
+        const formattedContents = [];
+        let systemPromptInjected = false;
+
+        if (Array.isArray(history) && history.length > 0) {
+          history.slice(-4).forEach(h => {
+            const role = h.role === 'assistant' ? 'model' : 'user';
+            const content = String(h.content || '').trim();
+            if (content) {
+              if (!systemPromptInjected && role === 'user') {
+                formattedContents.push({ role: 'user', parts: [{ text: `${systemPrompt}\n\nFarmer: ${content}` }] });
+                systemPromptInjected = true;
+              } else {
+                formattedContents.push({ role, parts: [{ text: content }] });
+              }
+            }
+          });
+        }
+
+        if (!systemPromptInjected) {
+          formattedContents.push({ role: 'user', parts: [{ text: `${systemPrompt}\n\nFarmer Question: ${message}` }] });
+        } else {
+          formattedContents.push({ role: 'user', parts: [{ text: message }] });
+        }
 
         const geminiRes = await axios.post(
           `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${geminiApiKey}`,
           {
-            contents: [
-              { role: 'user', parts: [{ text: `${systemPrompt}\n\nFarmer Question: ${message}` }] }
-            ],
+            contents: formattedContents,
             generationConfig: { temperature: 0.3, maxOutputTokens: 800 }
           },
           { headers: { 'Content-Type': 'application/json' }, timeout: 8000 }
