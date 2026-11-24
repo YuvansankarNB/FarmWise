@@ -333,6 +333,139 @@ Text to translate:
         "language": target_lang
     }
 
+# ─────────────────────────────────────────────────────────────
+# ADMIN GEOGRAPHIC CROP MONITORING DASHBOARD APIS
+# ─────────────────────────────────────────────────────────────
+from app.services.crop_monitoring_service import crop_monitoring_service
+from pydantic import BaseModel
+
+class CropRecordUpdatePayload(BaseModel):
+    crop_name: Optional[str] = None
+    crop_stage: Optional[str] = None
+    area_acres: Optional[float] = None
+    health_status: Optional[str] = None
+    disease_status: Optional[str] = None
+    verification_status: Optional[str] = None
+
+@app.get("/api/admin/crop-monitoring/filters")
+def get_crop_monitoring_filters():
+    """Returns cascading filter options: districts, taluks, villages, crops, seasons, stages, health statuses."""
+    return crop_monitoring_service.get_filter_options()
+
+@app.get("/api/admin/crop-monitoring/overview")
+def get_crop_monitoring_overview(
+    district: Optional[str] = Query(default=None),
+    taluk: Optional[str] = Query(default=None),
+    village: Optional[str] = Query(default=None),
+    crop: Optional[str] = Query(default=None),
+    season: Optional[str] = Query(default=None),
+    stage: Optional[str] = Query(default=None),
+    health: Optional[str] = Query(default=None),
+    verification: Optional[str] = Query(default=None)
+):
+    """Calculates summary cards & chart distributions filtered by geographic and agronomic criteria."""
+    return crop_monitoring_service.get_overview_statistics(
+        district=district,
+        taluk=taluk,
+        village=village,
+        crop=crop,
+        season=season,
+        stage=stage,
+        health=health,
+        verification=verification
+    )
+
+@app.get("/api/admin/crop-monitoring/markers")
+def get_crop_monitoring_markers(
+    district: Optional[str] = Query(default=None),
+    taluk: Optional[str] = Query(default=None),
+    village: Optional[str] = Query(default=None),
+    crop: Optional[str] = Query(default=None),
+    season: Optional[str] = Query(default=None),
+    stage: Optional[str] = Query(default=None),
+    health: Optional[str] = Query(default=None),
+    verification: Optional[str] = Query(default=None),
+    limit: int = Query(default=1500, le=5000)
+):
+    """Returns geo-referenced crop cultivation markers for interactive GIS visualization."""
+    return crop_monitoring_service.get_map_markers(
+        district=district,
+        taluk=taluk,
+        village=village,
+        crop=crop,
+        season=season,
+        stage=stage,
+        health=health,
+        verification=verification,
+        limit=limit
+    )
+
+@app.get("/api/admin/crop-monitoring/cadastral-boundaries")
+def get_crop_monitoring_cadastral_boundaries(
+    district: Optional[str] = Query(default=None),
+    village: Optional[str] = Query(default=None)
+):
+    """Returns Cadastral land parcel polygons for boundary overlay on the admin map."""
+    return crop_monitoring_service.get_cadastral_boundaries(district=district, village=village)
+
+@app.get("/api/admin/crop-monitoring/records")
+def get_crop_monitoring_records(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=25, ge=1, le=100),
+    district: Optional[str] = Query(default=None),
+    taluk: Optional[str] = Query(default=None),
+    village: Optional[str] = Query(default=None),
+    crop: Optional[str] = Query(default=None),
+    season: Optional[str] = Query(default=None),
+    stage: Optional[str] = Query(default=None),
+    health: Optional[str] = Query(default=None),
+    verification: Optional[str] = Query(default=None),
+    search: Optional[str] = Query(default=None)
+):
+    """Paginated crop cultivation records for administration, search, and audit."""
+    return crop_monitoring_service.get_crop_records_paginated(
+        page=page,
+        page_size=page_size,
+        district=district,
+        taluk=taluk,
+        village=village,
+        crop=crop,
+        season=season,
+        stage=stage,
+        health=health,
+        verification=verification,
+        search=search
+    )
+
+@app.get("/api/admin/crop-monitoring/records/{record_id}")
+def get_crop_monitoring_record_detail(record_id: str):
+    """Returns full information for a single crop cultivation record."""
+    rec = crop_monitoring_service.get_record_detail(record_id)
+    if not rec:
+        raise HTTPException(status_code=404, detail=f"Crop record '{record_id}' not found.")
+    return rec
+
+@app.put("/api/admin/crop-monitoring/records/{record_id}")
+def update_crop_monitoring_record(record_id: str, payload: CropRecordUpdatePayload):
+    """Authorizes an administrator to update or verify a crop record, logging changes to the audit history."""
+    updated = crop_monitoring_service.update_crop_record(
+        record_id=record_id,
+        update_data=payload.model_dump(exclude_unset=True),
+        admin_user="Agricultural Admin Officer"
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail=f"Crop record '{record_id}' not found.")
+    return {
+        "status": "success",
+        "message": f"Crop record {record_id} successfully verified/updated.",
+        "record": updated
+    }
+
+@app.get("/api/admin/crop-monitoring/audit-log")
+def get_crop_monitoring_audit_log(limit: int = Query(default=50, le=200)):
+    """Returns audit history of administrative adjustments and verifications."""
+    return {"audit_log": crop_monitoring_service.get_audit_logs(limit=limit)}
+
 @app.get("/api/storage")
 def get_s3_storage(bucket: Optional[str] = None):
     """Returns the list of files stored in AWS S3 with temporary viewing links."""

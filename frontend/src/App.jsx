@@ -6,6 +6,7 @@ import ParcelDashboard from './components/ParcelDashboard';
 import ChatbotDrawer from './components/ChatbotDrawer';
 import ImageUploadModal from './components/ImageUploadModal';
 import MarketPricesModal from './components/MarketPricesModal';
+import AdminDashboard from './components/AdminDashboard';
 import { api } from './services/api';
 import { Loader2, Sparkles, CheckCircle2, ShieldCheck, Cpu } from 'lucide-react';
 
@@ -20,6 +21,7 @@ const PIPELINE_STEPS = [
 
 export default function App() {
   const [lang, setLang] = useState('en');
+  const [currentView, setCurrentView] = useState('farmer'); // 'farmer' | 'admin'
   const [selectedSurvey, setSelectedSurvey] = useState(null);
   const [advisoryData, setAdvisoryData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -176,98 +178,108 @@ export default function App() {
           setLang={setLang}
           onOpenChat={handleOpenChat}
           onResetHome={handleResetHome}
+          currentView={currentView}
+          onToggleView={() => setCurrentView((v) => (v === 'admin' ? 'farmer' : 'admin'))}
         />
       </div>
 
       {/* Main Container */}
       <main className="flex-1">
-        {/* Unified Hero: Simple Clean Farmer Operations (Left) + Live Interactive AI Chatbot (Right) */}
-        <div className="no-print bg-gradient-to-b from-emerald-50/80 via-white to-slate-50 border-b border-emerald-100/70 pt-6 pb-10">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-              
-              {/* Left Column (7 cols): Clean, Simple Farmer Operations & Search */}
-              <div className="lg:col-span-7 space-y-6">
-                <HeroSearch
-                  lang={lang}
-                  onSelectSurvey={loadParcelAdvisory}
-                  isLoading={isLoading}
-                  inline={true}
-                />
+        {currentView === 'admin' ? (
+          /* Admin Geographic Crop Monitoring Dashboard */
+          <AdminDashboard onBackToFarmerView={() => setCurrentView('farmer')} />
+        ) : (
+          /* Standard Farmer Advisory View */
+          <>
+            {/* Unified Hero: Simple Clean Farmer Operations (Left) + Live Interactive AI Chatbot (Right) */}
+            <div className="no-print bg-gradient-to-b from-emerald-50/80 via-white to-slate-50 border-b border-emerald-100/70 pt-6 pb-10">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                  
+                  {/* Left Column (7 cols): Clean, Simple Farmer Operations & Search */}
+                  <div className="lg:col-span-7 space-y-6">
+                    <HeroSearch
+                      lang={lang}
+                      onSelectSurvey={loadParcelAdvisory}
+                      isLoading={isLoading}
+                      inline={true}
+                    />
 
-                <QuickActionCards
-                  lang={lang}
-                  onOpenUpload={() => setIsUploadOpen(true)}
-                  onSelectDefaultSurvey={loadParcelAdvisory}
-                  onOpenMarket={() => setIsMarketOpen(true)}
-                  inline={true}
-                />
-              </div>
+                    <QuickActionCards
+                      lang={lang}
+                      onOpenUpload={() => setIsUploadOpen(true)}
+                      onSelectDefaultSurvey={loadParcelAdvisory}
+                      onOpenMarket={() => setIsMarketOpen(true)}
+                      inline={true}
+                    />
+                  </div>
 
-              {/* Right Column (5 cols): Directly Visible Live Farmer AI Advisor Chatbot */}
-              <div className="lg:col-span-5 sticky top-20">
-                <ChatbotDrawer
-                  embedded={true}
-                  activeParcel={advisoryData?.parcel}
-                  lang={lang}
-                />
-              </div>
+                  {/* Right Column (5 cols): Directly Visible Live Farmer AI Advisor Chatbot */}
+                  <div className="lg:col-span-5 sticky top-20">
+                    <ChatbotDrawer
+                      embedded={true}
+                      activeParcel={advisoryData?.parcel}
+                      lang={lang}
+                    />
+                  </div>
 
-            </div>
-          </div>
-        </div>
-
-        {/* Inline Error Toast (replaces browser alert) */}
-        {errorMsg && (
-          <div className="max-w-2xl mx-auto px-4 mt-4">
-            <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-2xl shadow-sm animate-fade-in">
-              <div className="w-9 h-9 rounded-xl bg-red-100 text-red-600 flex items-center justify-center shrink-0">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-red-800">Survey Not Found</p>
-                <p className="text-xs text-red-700 mt-0.5">{errorMsg}</p>
-              </div>
-              <button onClick={() => setErrorMsg(null)} className="text-red-400 hover:text-red-600 shrink-0 p-1 cursor-pointer">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Loading Progress State */}
-        {isLoading && (
-          <div className="max-w-2xl mx-auto my-12 px-4">
-            <div className="p-8 bg-white rounded-3xl border border-emerald-200 shadow-xl text-center space-y-4">
-              <div className="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-700 mx-auto flex items-center justify-center animate-bounce">
-                <Cpu className="w-8 h-8" />
-              </div>
-              <h3 className="text-xl font-bold text-slate-900">
-                Agentic Pipeline Executing
-              </h3>
-              <p className="text-sm text-emerald-700 font-semibold animate-pulse">
-                {PIPELINE_STEPS[loadingStepIndex]}
-              </p>
-              <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                <div
-                  className="bg-emerald-600 h-full rounded-full transition-all duration-500"
-                  style={{ width: `${((loadingStepIndex + 1) / PIPELINE_STEPS.length) * 100}%` }}
-                />
-              </div>
-              <div className="text-xs text-slate-400">
-                Routing: Claude 3.5 &bull; Gemini 3.8 Flash &bull; Qwen-VL &bull; Open-Meteo &bull; PostGIS
+                </div>
               </div>
             </div>
-          </div>
-        )}
 
-        {/* Interactive Dashboard for current Parcel */}
-        {!isLoading && advisoryData && (
-          <ParcelDashboard
-            lang={lang}
-            advisoryData={advisoryData}
-            onNewSearch={loadParcelAdvisory}
-          />
+            {/* Inline Error Toast (replaces browser alert) */}
+            {errorMsg && (
+              <div className="max-w-2xl mx-auto px-4 mt-4">
+                <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-2xl shadow-sm animate-fade-in">
+                  <div className="w-9 h-9 rounded-xl bg-red-100 text-red-600 flex items-center justify-center shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-red-800">Survey Not Found</p>
+                    <p className="text-xs text-red-700 mt-0.5">{errorMsg}</p>
+                  </div>
+                  <button onClick={() => setErrorMsg(null)} className="text-red-400 hover:text-red-600 shrink-0 p-1 cursor-pointer">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Loading Progress State */}
+            {isLoading && (
+              <div className="max-w-2xl mx-auto my-12 px-4">
+                <div className="p-8 bg-white rounded-3xl border border-emerald-200 shadow-xl text-center space-y-4">
+                  <div className="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-700 mx-auto flex items-center justify-center animate-bounce">
+                    <Cpu className="w-8 h-8" />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900">
+                    Agentic Pipeline Executing
+                  </h3>
+                  <p className="text-sm text-emerald-700 font-semibold animate-pulse">
+                    {PIPELINE_STEPS[loadingStepIndex]}
+                  </p>
+                  <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                    <div
+                      className="bg-emerald-600 h-full rounded-full transition-all duration-500"
+                      style={{ width: `${((loadingStepIndex + 1) / PIPELINE_STEPS.length) * 100}%` }}
+                    />
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    Routing: Claude 3.5 &bull; Gemini 3.8 Flash &bull; Qwen-VL &bull; Open-Meteo &bull; PostGIS
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Interactive Dashboard for current Parcel */}
+            {!isLoading && advisoryData && (
+              <ParcelDashboard
+                lang={lang}
+                advisoryData={advisoryData}
+                onNewSearch={loadParcelAdvisory}
+              />
+            )}
+          </>
         )}
       </main>
 

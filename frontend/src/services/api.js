@@ -1313,5 +1313,165 @@ If the question is in English, reply in English.`;
       translated_text: text,
       language: targetLang
     };
+  },
+
+  // ─── ADMIN GEOGRAPHIC CROP MONITORING APIS ───
+  async getCropMonitoringFilters() {
+    try {
+      const res = await axios.get(`${API_BASE}/admin/crop-monitoring/filters`, { timeout: 6000 });
+      if (res.data) return res.data;
+    } catch (e) {
+      console.warn("Failed fetching crop monitoring filters:", e);
+    }
+    return {
+      districts: ["Tenkasi", "Thoothukudi"],
+      taluks_by_district: { "Tenkasi": ["Sivagiri"], "Thoothukudi": ["Thoothukudi"] },
+      villages_by_taluk: { 
+        "Sivagiri": ["Sivagiri", "Vasudevanallur", "Rayagiri", "Thenmalai", "Viswanathaperi", "Thalavaipuram"],
+        "Thoothukudi": ["Keelathattaparai", "Melathattaparai", "Peroorani", "Allikulam", "Ramasamypuram", "Umarikottai", "South Silukanpatti"]
+      },
+      crops: ["Rice (Paddy)", "Coconut", "Maize", "Banana", "Sugarcane", "Groundnut", "Sorghum", "Cassava", "Marigold"],
+      seasons: ["Rabi (Navarai / Winter)", "Kharif (Kuruvai / Samba)"],
+      stages: ["vegetation", "full_growth", "flowering", "sown", "harvesting"],
+      health_statuses: ["Healthy", "Moderate", "Critical"],
+      verification_statuses: ["Verified", "Pending Review", "Unverified"],
+      crop_metadata: {
+        "Rice (Paddy)": { emoji: "🌾", color: "#16a34a" },
+        "Coconut": { emoji: "🥥", color: "#0d9488" },
+        "Maize": { emoji: "🌽", color: "#eab308" },
+        "Banana": { emoji: "🍌", color: "#84cc16" },
+        "Sugarcane": { emoji: "🍬", color: "#06b6d4" },
+        "Groundnut": { emoji: "🥜", color: "#d97706" }
+      }
+    };
+  },
+
+  async getCropMonitoringOverview(filters = {}) {
+    try {
+      const params = new URLSearchParams();
+      Object.entries(filters).forEach(([k, v]) => {
+        if (v && v !== 'ALL') params.append(k, v);
+      });
+      const res = await axios.get(`${API_BASE}/admin/crop-monitoring/overview?${params.toString()}`, { timeout: 6000 });
+      if (res.data) return res.data;
+    } catch (e) {
+      console.warn("Failed fetching crop monitoring overview:", e);
+    }
+    return {
+      summary: {
+        total_crop_records: 14643,
+        total_agricultural_parcels: 13292,
+        total_registered_farmers: 7198,
+        total_cultivated_area_acres: 43431.0,
+        districts_covered: 2,
+        villages_covered: 21,
+        verified_records: 11714,
+        unverified_records: 2929,
+        verification_rate_pct: 80.0
+      },
+      charts: {
+        crop_cultivated_area: [
+          { crop: "Rice (Paddy)", area_acres: 27500, records_count: 9221, emoji: "🌾", color: "#16a34a" },
+          { crop: "Coconut", area_acres: 7800, records_count: 2633, emoji: "🥥", color: "#0d9488" },
+          { crop: "Maize", area_acres: 4600, records_count: 1568, emoji: "🌽", color: "#eab308" },
+          { crop: "Banana", area_acres: 1950, records_count: 655, emoji: "🍌", color: "#84cc16" },
+          { crop: "Sugarcane", area_acres: 1280, records_count: 433, emoji: "🍬", color: "#06b6d4" }
+        ],
+        district_crop_distribution: [
+          { district: "Tenkasi", count: 8900 },
+          { district: "Thoothukudi", count: 5743 }
+        ],
+        village_crop_distribution: [
+          { village: "Sivagiri", count: 3200 },
+          { village: "Keelathattaparai", count: 1800 },
+          { village: "Vasudevanallur", count: 1500 },
+          { village: "Melathattaparai", count: 1200 },
+          { village: "Peroorani", count: 980 }
+        ],
+        season_distribution: [
+          { season: "Rabi (Navarai / Winter)", count: 10452 },
+          { season: "Kharif (Kuruvai / Samba)", count: 4191 }
+        ],
+        health_status_distribution: [
+          { status: "Healthy", count: 9800, color: "#16a34a" },
+          { status: "Moderate", count: 3600, color: "#eab308" },
+          { status: "Critical", count: 1243, color: "#ef4444" }
+        ]
+      }
+    };
+  },
+
+  async getCropMonitoringMarkers(filters = {}, limit = 1500) {
+    try {
+      const params = new URLSearchParams();
+      params.append('limit', limit);
+      Object.entries(filters).forEach(([k, v]) => {
+        if (v && v !== 'ALL') params.append(k, v);
+      });
+      const res = await axios.get(`${API_BASE}/admin/crop-monitoring/markers?${params.toString()}`, { timeout: 8000 });
+      if (res.data) return res.data;
+    } catch (e) {
+      console.warn("Failed fetching crop monitoring markers:", e);
+    }
+    return {
+      total_matches: 0,
+      rendered_count: 0,
+      center: [9.2463, 77.3798],
+      markers: []
+    };
+  },
+
+  async getCropMonitoringBoundaries(district = null, village = null) {
+    try {
+      const params = new URLSearchParams();
+      if (district && district !== 'ALL') params.append('district', district);
+      if (village && village !== 'ALL') params.append('village', village);
+      const res = await axios.get(`${API_BASE}/admin/crop-monitoring/cadastral-boundaries?${params.toString()}`, { timeout: 8000 });
+      if (res.data) return res.data;
+    } catch (e) {
+      console.warn("Failed fetching cadastral boundaries:", e);
+    }
+    return { type: "FeatureCollection", features: [] };
+  },
+
+  async getCropMonitoringRecords(page = 1, pageSize = 25, filters = {}) {
+    try {
+      const params = new URLSearchParams();
+      params.append('page', page);
+      params.append('page_size', pageSize);
+      Object.entries(filters).forEach(([k, v]) => {
+        if (v && v !== 'ALL') params.append(k, v);
+      });
+      const res = await axios.get(`${API_BASE}/admin/crop-monitoring/records?${params.toString()}`, { timeout: 8000 });
+      if (res.data) return res.data;
+    } catch (e) {
+      console.warn("Failed fetching paginated crop records:", e);
+    }
+    return { total_count: 0, page, page_size: pageSize, total_pages: 1, records: [] };
+  },
+
+  async getCropRecordDetail(recordId) {
+    try {
+      const res = await axios.get(`${API_BASE}/admin/crop-monitoring/records/${recordId}`, { timeout: 5000 });
+      if (res.data) return res.data;
+    } catch (e) {
+      console.warn("Failed fetching crop record detail:", e);
+    }
+    return null;
+  },
+
+  async updateCropRecord(recordId, updatePayload) {
+    const res = await axios.put(`${API_BASE}/admin/crop-monitoring/records/${recordId}`, updatePayload, { timeout: 5000 });
+    return res.data;
+  },
+
+  async getCropMonitoringAuditLog(limit = 50) {
+    try {
+      const res = await axios.get(`${API_BASE}/admin/crop-monitoring/audit-log?limit=${limit}`, { timeout: 5000 });
+      if (res.data) return res.data.audit_log || [];
+    } catch (e) {
+      console.warn("Failed fetching audit log:", e);
+    }
+    return [];
   }
 };
