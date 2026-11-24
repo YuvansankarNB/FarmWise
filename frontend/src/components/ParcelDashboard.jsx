@@ -5,6 +5,7 @@ import CropAnalysisCard from './CropAnalysisCard';
 import WeatherCard from './WeatherCard';
 import AdvisoryCard from './AdvisoryCard';
 import SoilHealthCard from './SoilHealthCard';
+import SmartCropRecommendations from './SmartCropRecommendations';
 import DecisionTraceModal from './DecisionTraceModal';
 import PrintableTraceReport from './PrintableTraceReport';
 import { translations, tCrop, tStage, tStatus } from '../utils/translations';
@@ -156,6 +157,15 @@ export default function ParcelDashboard({ lang = 'en', advisoryData, onNewSearch
           <SoilHealthCard
             soilProfile={advisoryData.soil_profile || parcel.soil_profile}
             lang={lang}
+          />
+        </div>
+
+        {/* ─── NEW FEATURE 2: AI-POWERED SMART CROP RECOMMENDATIONS & PROFIT PREDICTOR ─── */}
+        <div id="crop-recommendations" className="scroll-mt-6">
+          <SmartCropRecommendations
+            surveyNumber={parcel.survey_number}
+            lang={lang}
+            activeParcel={parcel}
           />
         </div>
 

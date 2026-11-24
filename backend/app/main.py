@@ -466,6 +466,65 @@ def get_crop_monitoring_audit_log(limit: int = Query(default=50, le=200)):
     """Returns audit history of administrative adjustments and verifications."""
     return {"audit_log": crop_monitoring_service.get_audit_logs(limit=limit)}
 
+# ─────────────────────────────────────────────────────────────
+# AI-POWERED SEASONAL CROP RECOMMENDATION & PROFIT PREDICTION APIS
+# ─────────────────────────────────────────────────────────────
+from app.services.crop_recommendation_service import crop_recommendation_service
+
+@app.get("/api/crop-recommendations")
+def get_crop_recommendations(
+    survey_number: str = Query(default="1342", description="Cadastral Survey Number"),
+    land_area: Optional[float] = Query(default=None, description="Land area in acres"),
+    season: Optional[str] = Query(default=None, description="Season filter override")
+):
+    """Generates Top 5 AI-powered crop recommendations and profit projections based on soil, weather, season, and APMC rates."""
+    return crop_recommendation_service.generate_recommendations(
+        survey_number=survey_number,
+        land_area_acres=land_area,
+        season_override=season
+    )
+
+@app.get("/api/crop-recommendations/{survey_number}/profit-analysis")
+def get_crop_profit_analysis(
+    survey_number: str,
+    crop_name: Optional[str] = Query(default=None),
+    land_area: float = Query(default=1.0, ge=0.1)
+):
+    """Detailed cost, gross revenue, net profit, and ROI breakdown for a chosen crop and acreage."""
+    recs = crop_recommendation_service.generate_recommendations(
+        survey_number=survey_number,
+        land_area_acres=land_area
+    )
+    if crop_name:
+        matched = next((c for c in recs["top_5_recommendations"] if c["crop_name"].lower() == crop_name.lower()), None)
+        if matched:
+            return {
+                "crop": matched,
+                "land_area_acres": land_area,
+                "financials": matched["financials"]
+            }
+    return {
+        "land_summary": recs["land_summary"],
+        "comparison_chart": recs["comparison_chart"],
+        "top_crops": recs["top_5_recommendations"]
+    }
+
+@app.get("/api/crop-recommendations/{survey_number}/market-trends")
+def get_crop_market_trends(survey_number: str, crop: str = Query(default="Rice (Paddy)")):
+    """Historical 6-month APMC Mandi price trends and volatility for crop recommendation decision support."""
+    return crop_recommendation_service.get_market_trends_for_crop(crop_name=crop)
+
+@app.get("/api/admin/crop-recommendations/analytics")
+def get_admin_crop_recommendation_analytics(
+    district: Optional[str] = Query(default=None),
+    village: Optional[str] = Query(default=None)
+):
+    """District-wise, village-wise, and seasonal aggregate analytics on AI crop recommendations."""
+    return crop_recommendation_service.get_admin_recommendation_analytics(
+        district=district,
+        village=village
+    )
+
 @app.get("/api/storage")
 def get_s3_storage(bucket: Optional[str] = None):
     """Returns the list of files stored in AWS S3 with temporary viewing links."""

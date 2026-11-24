@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   MapPin, ShieldCheck, Filter, Layers, BarChart3, Database, 
-  RotateCcw, Sparkles, RefreshCw, FileText, ArrowLeft 
+  RotateCcw, Sparkles, RefreshCw, FileText, ArrowLeft, TrendingUp 
 } from 'lucide-react';
 import { api } from '../services/api';
 import AdminFilterToolbar from './AdminFilterToolbar';
@@ -9,6 +9,7 @@ import AdminCropMap from './AdminCropMap';
 import AdminStatsOverview from './AdminStatsOverview';
 import AdminRecordTable from './AdminRecordTable';
 import AdminRecordDetailModal from './AdminRecordDetailModal';
+import AdminRecommendationInsights from './AdminRecommendationInsights';
 
 export default function AdminDashboard({ onBackToFarmerView = () => {} }) {
   // State for Filters
@@ -38,6 +39,9 @@ export default function AdminDashboard({ onBackToFarmerView = () => {} }) {
   // Selected Record & Modal
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [detailModalRecord, setDetailModalRecord] = useState(null);
+
+  // Recommendation Analytics State
+  const [recommendationAnalytics, setRecommendationAnalytics] = useState(null);
 
   // Loading indicator
   const [isLoading, setIsLoading] = useState(true);
@@ -71,16 +75,18 @@ export default function AdminDashboard({ onBackToFarmerView = () => {} }) {
           search: searchQuery
         };
 
-        const [markersRes, overviewRes, tableRes] = await Promise.all([
+        const [markersRes, overviewRes, tableRes, recoAnalyticsRes] = await Promise.all([
           api.getCropMonitoringMarkers(currentParams, 1500),
           api.getCropMonitoringOverview(currentParams),
-          api.getCropMonitoringRecords(currentPage, 25, currentParams)
+          api.getCropMonitoringRecords(currentPage, 25, currentParams),
+          api.getAdminRecommendationAnalytics(selectedFilters.district, selectedFilters.village)
         ]);
 
         if (isMounted) {
           setMarkersData(markersRes);
           setOverviewData(overviewRes);
           setRecordsData(tableRes);
+          setRecommendationAnalytics(recoAnalyticsRes);
         }
       } catch (err) {
         console.error("Failed fetching crop monitoring data:", err);
@@ -246,7 +252,19 @@ export default function AdminDashboard({ onBackToFarmerView = () => {} }) {
           <AdminStatsOverview overviewData={overviewData} />
         </div>
 
-        {/* 4. Crop Record Management Table */}
+        {/* 4. AI Crop Recommendation & Profit Insights (Feature 2) */}
+        {recommendationAnalytics && (
+          <div className="space-y-2">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+              <TrendingUp className="w-4 h-4 text-emerald-600" />
+              <span>AI Seasonal Crop Recommendations &amp; Profit Projections</span>
+            </h3>
+
+            <AdminRecommendationInsights analyticsData={recommendationAnalytics} />
+          </div>
+        )}
+
+        {/* 5. Crop Record Management Table */}
         <div className="space-y-2">
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
             <Database className="w-4 h-4 text-emerald-600" />
