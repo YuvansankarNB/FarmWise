@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   Table, ChevronLeft, ChevronRight, Eye, ShieldCheck, 
-  AlertCircle, CheckCircle2, Search, Filter 
+  AlertCircle, CheckCircle2, Search, Filter, MapPin
 } from 'lucide-react';
 
 export default function AdminRecordTable({
@@ -11,6 +11,7 @@ export default function AdminRecordTable({
   pageSize = 25,
   onPageChange = () => {},
   onSelectRecord = () => {},
+  onLocateOnMap = () => {},
   onViewRecordDetail = () => {}
 }) {
   const totalPages = Math.ceil(totalCount / pageSize) || 1;
@@ -139,17 +140,30 @@ export default function AdminRecordTable({
                   </span>
                 </td>
                 <td className="py-3 px-4 text-right">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onViewRecordDetail(r.id);
-                    }}
-                    className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold inline-flex items-center gap-1 transition-colors"
-                    title="View details"
-                  >
-                    <Eye className="w-3.5 h-3.5" />
-                    <span>View / Action</span>
-                  </button>
+                  <div className="flex items-center justify-end gap-1.5">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onLocateOnMap(r);
+                      }}
+                      className="p-1.5 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-700 text-xs font-semibold inline-flex items-center gap-1 transition-colors"
+                      title="View crop icon on GIS map"
+                    >
+                      <MapPin className="w-3.5 h-3.5" />
+                      <span>Map</span>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onViewRecordDetail(r.id);
+                      }}
+                      className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold inline-flex items-center gap-1 transition-colors"
+                      title="View details"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>View</span>
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

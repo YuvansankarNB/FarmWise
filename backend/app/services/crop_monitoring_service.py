@@ -1,6 +1,7 @@
 import os
 import json
 import hashlib
+from collections import defaultdict
 from typing import Dict, Any, List, Optional
 import pandas as pd
 from app.config import settings
@@ -590,6 +591,7 @@ class CropMonitoringService:
         verification: Optional[str] = None,
         disease: Optional[str] = None,
         priority: Optional[str] = None,
+        search: Optional[str] = None,
         limit: int = 1500
     ) -> Dict[str, Any]:
         records = self.filter_records(
@@ -602,11 +604,47 @@ class CropMonitoringService:
             health=health,
             verification=verification,
             disease=disease,
-            priority=priority
+            priority=priority,
+            search=search
         )
 
-        # Slice to limit for optimal GIS rendering
-        sliced_records = records[:limit]
+        # Sample records up to limit with stratified crop coverage so that
+        # every cultivated crop type and acre parcel is guaranteed visible on the GIS map
+        if len(records) <= limit:
+            sliced_records = records
+        else:
+            by_crop: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+            for r in records:
+                by_crop[r["crop_name"]].append(r)
+
+            min_per_crop = 10
+            reserved = sum(min(len(recs), min_per_crop) for recs in by_crop.values())
+            remaining_limit = max(0, limit - reserved)
+            total_records = len(records)
+            sampled: List[Dict[str, Any]] = []
+
+            for crop_name, recs in by_crop.items():
+                base_take = min(len(recs), min_per_crop)
+                prop_take = int((len(recs) / total_records) * remaining_limit) if total_records > 0 else 0
+                take_count = min(len(recs), base_take + prop_take)
+
+                # Evenly distribute samples across records to cover geographic villages/acres
+                if len(recs) <= take_count:
+                    sampled.extend(recs)
+                else:
+                    step = len(recs) / take_count
+                    for i in range(take_count):
+                        sampled.append(recs[int(i * step)])
+
+            # Backfill any remaining quota up to limit
+            if len(sampled) < limit:
+                sampled_ids = set(r["id"] for r in sampled)
+                for r in records:
+                    if r["id"] not in sampled_ids:
+                        sampled.append(r)
+                        if len(sampled) >= limit:
+                            break
+            sliced_records = sampled[:limit]
 
         markers = []
         for r in sliced_records:

@@ -142,6 +142,57 @@ export default function AdminDashboard({ onBackToFarmerView = () => {} }) {
     }
   };
 
+  const handleSelectAndLocateRecord = (record) => {
+    setSelectedRecord(record);
+    // If the record exists in current markers, highlight it; if not, add it so the map displays its crop icon immediately
+    if (record && record.latitude && record.longitude) {
+      setMarkersData((prev) => {
+        const exists = prev.markers.some((m) => m.id === record.id);
+        const lat = Number(record.latitude);
+        const lng = Number(record.longitude);
+        if (exists) {
+          return { ...prev, center: [lat, lng] };
+        }
+        const newMarker = {
+          id: record.id,
+          parcel_id: record.parcel_id,
+          survey_number: record.survey_number,
+          sub_division: record.sub_division,
+          village: record.village_name || record.village,
+          taluk: record.taluk,
+          district: record.district,
+          lat: lat,
+          lng: lng,
+          crop: record.crop_name || record.crop,
+          crop_emoji: record.crop_emoji || '🌱',
+          crop_color: record.crop_color || '#10b981',
+          marker_color: record.marker_color || '#10b981',
+          crop_stage: record.crop_stage,
+          health_status: record.health_status,
+          health_score: record.health_score,
+          disease_status: record.disease_status,
+          area_acres: record.area_acres,
+          verification_status: record.verification_status,
+          priority: record.priority || 'LOW',
+          priority_color: record.priority_color || '#16a34a',
+          priority_reason: record.priority_reason || '',
+          farmer_name_masked: record.farmer_name_masked
+        };
+        return {
+          ...prev,
+          center: [lat, lng],
+          markers: [newMarker, ...prev.markers]
+        };
+      });
+
+      // Smooth scroll up to the map so the user immediately sees the crop parcel icon
+      const mapElement = document.getElementById('admin-crop-gis-map');
+      if (mapElement) {
+        mapElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  };
+
   const handleRecordUpdated = (updatedRecord) => {
     // Update local state in table and markers
     setRecordsData((prev) => ({
@@ -230,7 +281,7 @@ export default function AdminDashboard({ onBackToFarmerView = () => {} }) {
         />
 
         {/* 3. Interactive GIS Cadastral Map with Crop Symbols & Status Colors */}
-        <div className="space-y-2">
+        <div id="admin-crop-gis-map" className="space-y-2 scroll-mt-24">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
               <MapPin className="w-4 h-4 text-emerald-600" />
@@ -290,9 +341,10 @@ export default function AdminDashboard({ onBackToFarmerView = () => {} }) {
             pageSize={recordsData.page_size}
             onPageChange={(p) => setCurrentPage(p)}
             onSelectRecord={(r) => {
-              setSelectedRecord(r);
+              handleSelectAndLocateRecord(r);
               handleViewRecordDetail(r.id);
             }}
+            onLocateOnMap={(r) => handleSelectAndLocateRecord(r)}
             onViewRecordDetail={handleViewRecordDetail}
           />
         </div>

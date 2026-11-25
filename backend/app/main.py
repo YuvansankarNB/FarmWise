@@ -414,6 +414,7 @@ def get_crop_monitoring_markers(
     verification: Optional[str] = Query(default=None),
     disease: Optional[str] = Query(default=None),
     priority: Optional[str] = Query(default=None),
+    search: Optional[str] = Query(default=None),
     limit: int = Query(default=1500, le=5000)
 ):
     """Returns geo-referenced crop cultivation markers for interactive GIS visualization with status color indicators."""
@@ -428,6 +429,7 @@ def get_crop_monitoring_markers(
         verification=verification,
         disease=disease,
         priority=priority,
+        search=search,
         limit=limit
     )
 
