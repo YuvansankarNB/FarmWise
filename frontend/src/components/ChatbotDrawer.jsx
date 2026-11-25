@@ -1,5 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { X, Send, Bot, Camera, Loader2, Cpu, ShieldCheck, Mic, MicOff, Globe, RotateCcw, Volume2, VolumeX } from 'lucide-react';
+import { 
+  X, Send, Bot, Camera, Loader2, Cpu, ShieldCheck, Mic, MicOff, 
+  Globe, RotateCcw, Volume2, VolumeX, Pause, Play, Square, RefreshCw, AlertCircle 
+} from 'lucide-react';
 import { api } from '../services/api';
 
 const QUICK_PROMPTS = [
@@ -41,7 +44,10 @@ export default function ChatbotDrawer({ isOpen = true, onClose, activeParcel, la
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [speakingIdx, setSpeakingIdx] = useState(null);
+  const [isPaused, setIsPaused] = useState(false);
   const [autoSpeak, setAutoSpeak] = useState(false);
+  const [micError, setMicError] = useState(null);
+  const [ttsSpeed, setTtsSpeed] = useState(0.95);
 
   useEffect(() => {
     if (propLang) {
@@ -94,36 +100,79 @@ export default function ChatbotDrawer({ isOpen = true, onClose, activeParcel, la
       .trim();
   };
 
-  // ─── Text to Speech (Tamil & English) ──────────────────────────────────────
+  // ─── Text to Speech (Tamil & English) with Pause/Resume/Replay ────────────
   const stopSpeaking = useCallback(() => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
     setSpeakingIdx(null);
+    setIsPaused(false);
   }, []);
+
+  const pauseSpeaking = useCallback(() => {
+    if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
+      window.speechSynthesis.pause();
+      setIsPaused(true);
+    }
+  }, []);
+
+  const resumeSpeaking = useCallback(() => {
+    if ('speechSynthesis' in window && window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
+      setIsPaused(false);
+    }
+  }, []);
+
+  const sanitizeForSpeech = (rawText) => {
+    if (!rawText) return '';
+    return rawText
+      // Remove URLs and markdown links
+      .replace(/https?:\/\/\S+/g, '')
+      .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
+      // Remove markdown headings, dividers and blockquotes
+      .replace(/^#{1,6}\s*/gm, '')
+      .replace(/^[-*_]{3,}$/gm, '')
+      .replace(/^>\s*/gm, '')
+      // Remove code blocks and inline backticks
+      .replace(/```[\s\S]*?```/g, '')
+      .replace(/`([^`]+)`/g, '$1')
+      // Remove bold/italics markers
+      .replace(/\*{1,3}([^\*]+)\*{1,3}/g, '$1')
+      .replace(/_{1,3}([^_]+)_{1,3}/g, '$1')
+      // Convert technical abbreviations and units to farmer-friendly words
+      .replace(/\bkg\/ac\b/gi, ' kilograms per acre ')
+      .replace(/\bkg\/ha\b/gi, ' kilograms per hectare ')
+      .replace(/\b₹\s*(\d+)/g, '$1 rupees ')
+      .replace(/\bRs\.?\s*(\d+)/gi, '$1 rupees ')
+      .replace(/\bpH\b/g, ' p H ')
+      .replace(/\bNPK\b/g, ' N P K ')
+      .replace(/\bEC\b/g, ' E C ')
+      .replace(/•/g, ', ')
+      // Remove emojis
+      .replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
 
   const speakText = useCallback((text, index) => {
     if (!('speechSynthesis' in window)) {
-      alert('Text-to-speech is not supported on this browser.');
+      alert(lang === 'ta' ? 'உங்கள் உலாவியில் குரல் வசதி ஆதரிக்கப்படவில்லை.' : 'Text-to-speech is not supported on this browser.');
       return;
     }
 
     if (speakingIdx === index) {
-      stopSpeaking();
+      if (isPaused) {
+        resumeSpeaking();
+      } else {
+        pauseSpeaking();
+      }
       return;
     }
 
     window.speechSynthesis.cancel();
+    setIsPaused(false);
 
-    // Clean markdown, symbols, and emojis for smooth, natural voice narration
-    const cleanSpeech = text
-      .replace(/[\*\#\_\~\[\]\(\)\<\>]/g, ' ')
-      .replace(/•/g, ', ')
-      .replace(/[\u{1F300}-\u{1F9FF}]/gu, '') // remove emojis
-      .replace(/https?:\/\/\S+/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-
+    const cleanSpeech = sanitizeForSpeech(text);
     if (!cleanSpeech) return;
 
     // Detect language: check for Tamil unicode range [\u0B80-\u0BFF]
@@ -132,25 +181,41 @@ export default function ChatbotDrawer({ isOpen = true, onClose, activeParcel, la
 
     const utterance = new SpeechSynthesisUtterance(cleanSpeech);
     utterance.lang = targetLang;
-    utterance.rate = hasTamil ? 0.95 : 1.0;
+    utterance.rate = hasTamil ? Math.min(ttsSpeed, 0.95) : ttsSpeed;
     utterance.pitch = 1.0;
 
     const voices = window.speechSynthesis.getVoices();
     if (voices && voices.length > 0) {
-      const matchVoice = voices.find(v => v.lang.replace('_', '-') === targetLang) ||
-                         voices.find(v => v.lang.startsWith(targetLang.split('-')[0])) ||
-                         voices.find(v => targetLang.startsWith('en') && v.lang.startsWith('en'));
+      // Prioritize authentic native Tamil voice for Tamil text
+      let matchVoice = null;
+      if (hasTamil) {
+        matchVoice = voices.find(v => v.lang.toLowerCase() === 'ta-in' || v.lang.toLowerCase().startsWith('ta')) ||
+                     voices.find(v => v.name.toLowerCase().includes('tamil') || v.name.toLowerCase().includes('valluvar'));
+      } else {
+        matchVoice = voices.find(v => v.lang.toLowerCase() === 'en-in') ||
+                     voices.find(v => v.lang.toLowerCase().startsWith('en'));
+      }
       if (matchVoice) {
         utterance.voice = matchVoice;
       }
     }
 
-    utterance.onstart = () => setSpeakingIdx(index);
-    utterance.onend = () => setSpeakingIdx(null);
-    utterance.onerror = () => setSpeakingIdx(null);
+    utterance.onstart = () => {
+      setSpeakingIdx(index);
+      setIsPaused(false);
+    };
+    utterance.onend = () => {
+      setSpeakingIdx(null);
+      setIsPaused(false);
+    };
+    utterance.onerror = (err) => {
+      console.warn('[SpeechSynthesis] Error:', err);
+      setSpeakingIdx(null);
+      setIsPaused(false);
+    };
 
     window.speechSynthesis.speak(utterance);
-  }, [speakingIdx, stopSpeaking]);
+  }, [speakingIdx, isPaused, ttsSpeed, lang, stopSpeaking, pauseSpeaking, resumeSpeaking]);
 
   useEffect(() => {
     return () => {
@@ -265,7 +330,13 @@ export default function ChatbotDrawer({ isOpen = true, onClose, activeParcel, la
     setIsRecording(false);
   }, []);
 
+  const cancelRecording = useCallback(() => {
+    stopRecording();
+    setMicError(null);
+  }, [stopRecording]);
+
   const startRecording = useCallback(async () => {
+    setMicError(null);
     if (isRecording) {
       stopRecording();
       return;
@@ -274,12 +345,11 @@ export default function ChatbotDrawer({ isOpen = true, onClose, activeParcel, la
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      // No browser speech API — try pure Groq MediaRecorder path
+      // Fallback: check if mediaDevices is supported
       if (!navigator.mediaDevices?.getUserMedia) {
-        alert('Your browser does not support speech recognition. Please type your question.');
+        setMicError(lang === 'ta' ? 'உங்கள் உலாவியில் குரல் உள்ளீடு ஆதரிக்கப்படவில்லை.' : 'Speech recognition is not supported on this browser. Please type your message.');
         return;
       }
-      // Pure MediaRecorder → Groq path
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         audioChunksRef.current = [];
@@ -295,14 +365,17 @@ export default function ChatbotDrawer({ isOpen = true, onClose, activeParcel, la
           try {
             const result = await api.transcribeVoice(blob, lang);
             if (result?.text) setInput(prev => prev ? prev + ' ' + result.text : result.text);
-          } catch {}
-          finally { setIsTranscribing(false); }
+          } catch (e) {
+            console.warn("Groq transcription fallback failed:", e);
+          } finally { 
+            setIsTranscribing(false); 
+          }
         };
-        recorder.start(250); // collect chunks every 250ms
+        recorder.start(250);
         mediaRecorderRef.current = recorder;
         setIsRecording(true);
       } catch (err) {
-        alert('Microphone permission denied. Please allow microphone access and try again.');
+        setMicError(lang === 'ta' ? 'மைக்ரோஃபோன் அனுமதி மறுக்கப்பட்டது. தயவுசெய்து உலாவியில் மைக் அனுமதியை இயக்கவும்.' : 'Microphone permission denied. Please allow microphone access in browser settings.');
       }
       return;
     }
@@ -310,39 +383,44 @@ export default function ChatbotDrawer({ isOpen = true, onClose, activeParcel, la
     // ── Primary: browser SpeechRecognition (works instantly in Chrome/Edge) ──
     const recog = new SpeechRecognition();
     recog.lang = lang === 'ta' ? 'ta-IN' : 'en-IN';
-    recog.continuous = true;        // keep listening until manually stopped
-    recog.interimResults = true;    // show live partial results in input
+    recog.continuous = false;       // automatically finishes after user completes sentence
+    recog.interimResults = true;    // show live partial results in input box
     recog.maxAlternatives = 1;
 
-    let finalTranscript = input;    // accumulate on top of existing input text
+    let baseText = input ? input.trim() + ' ' : '';
 
-    recog.onstart = () => setIsRecording(true);
+    recog.onstart = () => {
+      setIsRecording(true);
+      setMicError(null);
+    };
 
     recog.onresult = (e) => {
       let interim = '';
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const t = e.results[i][0].transcript;
         if (e.results[i].isFinal) {
-          finalTranscript = (finalTranscript ? finalTranscript + ' ' : '') + t;
+          baseText += t + ' ';
         } else {
           interim = t;
         }
       }
-      // Show final + live interim in the input box
-      setInput(finalTranscript + (interim ? ' ' + interim : ''));
+      setInput((baseText + interim).trim());
     };
 
     recog.onerror = (e) => {
       console.warn('[SpeechRecog] error:', e.error);
       if (e.error === 'not-allowed' || e.error === 'permission-denied') {
-        alert('Microphone permission denied. Please allow microphone access in your browser settings.');
+        setMicError(lang === 'ta' ? 'மைக்ரோஃபோன் அனுமதி மறுக்கப்பட்டது.' : 'Microphone permission denied. Please enable microphone permissions in your browser.');
+      } else if (e.error === 'no-speech') {
+        // Just silent timeout
+      } else {
+        setMicError(lang === 'ta' ? `குரல் பதிவு பிழை: ${e.error}` : `Speech recognition error: ${e.error}`);
       }
       setIsRecording(false);
       recognitionRef.current = null;
     };
 
     recog.onend = () => {
-      // Only clear isRecording if we didn't manually stop (continuous mode can auto-stop)
       setIsRecording(false);
       recognitionRef.current = null;
     };
@@ -450,23 +528,51 @@ export default function ChatbotDrawer({ isOpen = true, onClose, activeParcel, la
                 {cleanDisplayText(msg.text) || msg.text || (lang === 'ta' ? 'வணக்கம் விவசாயி அவர்களே! விவரங்கள் பெறப்பட்டுள்ளன.' : 'Hello Farmer! Information retrieved.')}
               </p>
               {msg.sender === 'bot' && (
-                <div className="mt-2 flex items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    onClick={() => speakText(msg.text, idx)}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
-                      speakingIdx === idx
-                        ? 'bg-emerald-600 text-white shadow-xs animate-pulse ring-2 ring-emerald-400'
-                        : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200'
-                    }`}
-                    title={speakingIdx === idx ? (lang === 'ta' ? 'குரலை நிறுத்து' : 'Stop voice') : (lang === 'ta' ? 'பதிலை குரலில் கேளுங்கள்' : 'Listen to response')}
-                  >
-                    {speakingIdx === idx ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-                    <span>{speakingIdx === idx ? (lang === 'ta' ? 'நிறுத்து' : 'Stop Voice') : (lang === 'ta' ? 'குரலில் கேட்க' : 'Listen')}</span>
-                  </button>
+                <div className="mt-2.5 pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    {/* Play / Pause / Resume Button */}
+                    <button
+                      type="button"
+                      onClick={() => speakText(msg.text, idx)}
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                        speakingIdx === idx
+                          ? isPaused
+                            ? 'bg-amber-500 text-white shadow-xs'
+                            : 'bg-emerald-600 text-white shadow-xs animate-pulse ring-2 ring-emerald-400'
+                          : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200'
+                      }`}
+                      title={speakingIdx === idx ? (isPaused ? 'Resume' : 'Pause') : 'Listen to response'}
+                    >
+                      {speakingIdx === idx ? (
+                        isPaused ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />
+                      ) : (
+                        <Volume2 className="w-3 h-3" />
+                      )}
+                      <span>
+                        {speakingIdx === idx
+                          ? (isPaused ? (lang === 'ta' ? 'தொடர்க' : 'Resume') : (lang === 'ta' ? 'இடைநிறுத்து' : 'Pause'))
+                          : (lang === 'ta' ? 'குரலில் கேட்க' : 'Listen')}
+                      </span>
+                    </button>
+
+                    {/* Explicit Stop Audio Button */}
+                    {speakingIdx === idx && (
+                      <button
+                        type="button"
+                        onClick={stopSpeaking}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 cursor-pointer"
+                        title="Stop Voice"
+                      >
+                        <Square className="w-2.5 h-2.5 fill-current" />
+                        <span>{lang === 'ta' ? 'நிறுத்து' : 'Stop'}</span>
+                      </button>
+                    )}
+                  </div>
+
                   {speakingIdx === idx && (
-                    <span className="text-[10px] text-emerald-700 font-medium animate-pulse">
-                      🔊 {lang === 'ta' ? 'பேசுகிறது...' : 'Speaking...'}
+                    <span className="text-[10px] text-emerald-700 font-medium flex items-center gap-1 animate-pulse">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                      {isPaused ? (lang === 'ta' ? 'இடைநிறுத்தப்பட்டது' : 'Paused') : (lang === 'ta' ? 'வாசிக்கிறது...' : 'Narrating...')}
                     </span>
                   )}
                 </div>
@@ -534,23 +640,49 @@ export default function ChatbotDrawer({ isOpen = true, onClose, activeParcel, la
           </div>
         )}
 
-        {/* Recording indicator */}
-        {isRecording && (
-          <div className="mb-2 flex items-center justify-between px-1">
-            <div className="flex items-center gap-2 text-xs text-red-600 font-semibold">
-              <span className="relative flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500" />
-              </span>
-              {lang === 'ta' ? 'பதிவு நடக்கிறது...' : 'Listening… speak now'}
+        {/* Microphone Error Alert */}
+        {micError && (
+          <div className="mb-2 p-2 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+              <span>{micError}</span>
             </div>
             <button
               type="button"
-              onClick={stopRecording}
-              className="text-[10px] font-bold px-2 py-0.5 bg-red-100 hover:bg-red-200 text-red-700 rounded-full border border-red-300 cursor-pointer transition-colors"
+              onClick={() => setMicError(null)}
+              className="text-[10px] font-bold text-rose-600 hover:text-rose-900 cursor-pointer"
             >
-              {lang === 'ta' ? 'நிறுத்து ✓' : 'Done ✓'}
+              ✕
             </button>
+          </div>
+        )}
+
+        {/* Live Recording Indicator with Cancel & Retry Controls */}
+        {isRecording && (
+          <div className="mb-2 p-2.5 bg-rose-50/80 border border-rose-200 rounded-2xl flex items-center justify-between gap-2 shadow-2xs">
+            <div className="flex items-center gap-2 text-xs text-rose-700 font-bold">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-600" />
+              </span>
+              <span>{lang === 'ta' ? 'நேரலை குரல் பதிவு நடக்கிறது... (பேசவும்)' : 'Listening… speak naturally now'}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={cancelRecording}
+                className="text-[10px] font-semibold px-2 py-0.5 bg-white hover:bg-slate-100 text-slate-700 rounded-lg border border-slate-200 cursor-pointer transition-colors"
+              >
+                {lang === 'ta' ? 'ரத்து செய்' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                onClick={stopRecording}
+                className="text-[10px] font-bold px-2.5 py-0.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-2xs cursor-pointer transition-colors"
+              >
+                {lang === 'ta' ? 'முடிந்தது ✓' : 'Done ✓'}
+              </button>
+            </div>
           </div>
         )}
 

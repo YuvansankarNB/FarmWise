@@ -265,73 +265,83 @@ class ChatbotAgent:
                 }]
             }
 
-        # 4b. Out-of-Domain / Non-Agricultural Queries (Cricket, Cinema, Politics, General Chat)
-        is_cricket = any(k in q_lower or k in query for k in [
-            "கிரிக்கெட்", "மேட்ச்", "ஸ்கோர்", "ஐபிஎல்", "தோனி", "கோலி",
-            "cricket", "match", "score", "ipl", "dhoni", "kohli", "world cup"
+        # 4b. Out-of-Domain & Strict Agricultural Domain Classification
+        # Guard against: General Knowledge, Politics, Coding, Entertainment, Sports, Movies, Math/Science without farm context, and Prompt Injections.
+        
+        # Genuine Agricultural connection whitelist:
+        # e.g. Agricultural IoT, Farm credit/loans, PM-KISAN, crop insurance, livestock, agro-solar
+        is_agri_connected = any(k in q_lower or k in query for k in [
+            "iot", "sensor", "drone", "solar", "pump", "loan", "subsidy", "scheme", "pm-kisan", "pm kisan",
+            "kisan", "credit card", "kcc", "insurance", "fasal bima", "livestock", "cattle", "dairy", "goat",
+            "வேளாண்", "மானியம்", "காப்பீடு", "கடன்", "கிசான்", "சொட்டு நீர்", "பம்பு", "மாடு", "ஆடு"
         ])
-        is_cinema = any(k in q_lower or k in query for k in [
-            "சினிமா", "படம்", "திரைப்படம்", "நடிகர்", "நடிகை", "பாடல்", "பாட்டு",
-            "movie", "movies", "cinema", "actor", "actress", "song", "trailer"
+
+        # Check for non-agricultural topics
+        is_general_gk = any(k in q_lower or k in query for k in [
+            "prime minister", "president", "capital of", "who is the pm", "chief minister", "modi", "stalin",
+            "பிரதமர்", "ஜனாதிபதி", "தலைநகரம்", "முதல்வர்", "அரசியல்", "election", "parliament", "vote", "congress", "bjp"
         ])
-        is_politics = any(k in q_lower or k in query for k in [
-            "அரசியல்", "தேர்தல்", "எம்எல்ஏ", "எம்பி", "முதல்வர்", "பிரதமர்",
-            "politics", "election", "politician", "minister"
+        is_programming = any(k in q_lower or k in query for k in [
+            "java", "python", "javascript", "c++", "c#", "html", "css", "sql", "write a code", "write a program",
+            "inheritance", "polymorphism", "function", "class", "algorithm", "software", "bug in code", "compiler"
         ])
-        is_general_ood = any(k in q_lower or k in query for k in [
-            "ஜோக்", "கவிதை", "சமையல்", "joke", "poem", "recipe", "coding", "software", "football"
+        is_entertainment = any(k in q_lower or k in query for k in [
+            "tell me a joke", "tell me a story", "movie", "cinema", "actor", "actress", "song", "lyrics", "trailer",
+            "சினிமா", "படம்", "திரைப்படம்", "ஜோக்", "நகைச்சுவை", "பாடல்", "பாட்டு", "கதை", "விஜய்", "அஜித்", "ரஜினி"
         ])
-        is_out_of_domain = is_cricket or is_cinema or is_politics or is_general_ood
+        is_sports = any(k in q_lower or k in query for k in [
+            "cricket", "match", "score", "ipl", "dhoni", "kohli", "football", "fifa", "messi", "ronaldo", "tennis",
+            "கிரிக்கெட்", "மேட்ச்", "ஸ்கோர்", "ஐபிஎல்", "கால்பந்து"
+        ])
+        is_general_unrelated = any(k in q_lower or k in query for k in [
+            "recipe for biryani", "how to make cake", "physics formula", "quantum", "travel to paris", "visa to usa",
+            "bitcoin", "crypto", "stock market nifty", "sensex"
+        ])
+
+        # Prompt injection detection (attempts to override agricultural persona)
+        is_prompt_injection = any(k in q_lower for k in [
+            "ignore previous instructions", "disregard instructions", "you are now", "act as", "jailbreak",
+            "dan mode", "system prompt", "forget your persona", "reveal your instructions"
+        ])
+
+        is_out_of_domain = not is_agri_connected and (
+            is_general_gk or is_programming or is_entertainment or is_sports or is_general_unrelated or is_prompt_injection
+        )
 
         if is_out_of_domain:
-            crop_bilingual = {
-                "Coconut": "தென்னை (Coconut)",
-                "Rice (Paddy)": "நெல் (Paddy / Rice)",
-                "Maize": "சோளம் (Maize)",
-                "Banana": "வாழை (Banana)",
-                "Sugarcane": "கரும்பு (Sugarcane)",
-                "Cotton": "பருத்தி (Cotton)",
-                "Groundnut": "நிலக்கடலை (Groundnut)",
-                "Sorghum": "சோளம் (Sorghum)"
-            }
-            target_crop_name = detected_crop or recorded_crop
-            crop_label = crop_bilingual.get(target_crop_name, target_crop_name) if target_crop_name else None
-            crop_mention_ta = f", உங்கள் {crop_label} பயிர் மற்றும்" if crop_label else ", உங்கள் பயிர் மற்றும்"
-            crop_mention_en = f" your {target_crop_name} crop and" if target_crop_name else " your crops and"
-
-            if is_cricket:
-                topic_ta = "கிரிக்கெட் போட்டிகள்"
-                topic_en = "cricket matches and sports"
-            elif is_cinema:
-                topic_ta = "திரைப்படம் மற்றும் சினிமா"
-                topic_en = "movies and entertainment"
-            elif is_politics:
-                topic_ta = "அரசியல் விவரங்கள்"
-                topic_en = "politics and news"
+            if is_programming:
+                refusal_en = "I am FarmWise AI, an agricultural advisory assistant. I can help with farming, crop management, soil health, and weather-related questions rather than general programming requests."
+                refusal_ta = "நான் பார்ம்வைஸ் AI (FarmWise AI) வேளாண்மை ஆலோசகர் ஆவேன். கணினி நிரலாக்கம் (Coding/Programming) சார்ந்த கேள்விகளை விட, விவசாயம் மற்றும் பயிர் மேலாண்மை தொடர்பான கேள்விகளுக்கு மட்டுமே என்னால் உதவ முடியும்."
+            elif is_general_gk:
+                refusal_en = "I am FarmWise AI, your agricultural advisor. I can help you with farming, crop management, soil health, weather, fertilizers, and other agriculture-related questions. Please ask me something related to agriculture."
+                refusal_ta = "நான் உங்கள் பார்ம்வைஸ் AI வேளாண்மை ஆலோசகர். விவசாயம், பயிர் மேலாண்மை, மண் வளம், வானிலை, மற்றும் உரப் பரிந்துரைகள் தொடர்பான கேள்விகளுக்கு மட்டுமே என்னால் பதிலளிக்க இயலும். விவசாயம் சார்ந்த கேள்விகளைக் கேளுங்கள்."
+            elif is_entertainment:
+                refusal_en = "I am FarmWise AI, your farming assistant. I am here to help you with crop cultivation, soil health, pest management, and agricultural guidance."
+                refusal_ta = "நான் உங்கள் பார்ம்வைஸ் AI வேளாண்மை உதவியாளர். பயிர் சாகுபடி, மண் நலம், பூச்சி மேலாண்மை மற்றும் விவசாய வழிகாட்டுதலுக்கு உதவவே நான் இங்கு உள்ளேன்."
+            elif is_prompt_injection:
+                refusal_en = "I am FarmWise AI, dedicated exclusively to agricultural intelligence, farmer advisory, and crop decision support."
+                refusal_ta = "நான் பார்ம்வைஸ் AI, விவசாயிகளுக்கு அதிகாரப்பூர்வ பயிர் வழிகாட்டுதல் மற்றும் வேளாண் ஆலோசனைகளை வழங்குவதற்கு மட்டுமே இயங்குகிறேன்."
             else:
-                topic_ta = "விவசாயம் அல்லாத பொதுவான விவரங்கள்"
-                topic_en = "general non-agricultural topics"
+                refusal_en = "I am FarmWise AI, your dedicated agricultural advisor. I can assist you with crop management, soil testing, weather forecasts, pest diagnosis, and mandi market prices. Please ask a farming-related question."
+                refusal_ta = "நான் பார்ம்வைஸ் AI வேளாண் ஆலோசகர். பயிர் பராமரிப்பு, மண் பரிசோதனை, வானிலை முன்னறிவிப்பு, பூச்சி மேலாண்மை மற்றும் மண்டி சந்தை விலைகள் தொடர்பாக மட்டுமே என்னால் உதவ முடியும்."
 
-            if is_tamil:
-                ood_reply = f"வணக்கம் ஐயா. நான் {topic_ta} பற்றிய விவரங்களை வழங்கும் செயலி அல்ல{crop_mention_ta} விவசாயம் தொடர்பான சந்தேகங்களுக்கு உதவக்கூடிய FarmWise AI நிபுணர் ஆவேன்."
-            else:
-                ood_reply = f"Hello. I am not designed to provide updates on {topic_en}. I am FarmWise AI, dedicated to assisting you with{crop_mention_en} agricultural guidance."
+            selected_refusal = refusal_ta if is_tamil else refusal_en
 
             return {
-                "reply": clean_chat_response(ood_reply, query),
-                "model_used": "FarmwiseAI Out-of-Domain Guardrail",
+                "reply": clean_chat_response(selected_refusal, query),
+                "model_used": "FarmWise AI Agricultural Domain Guardrail",
                 "confidence": 0.99,
-                "sources": ["FarmwiseAI System"],
+                "sources": ["FarmwiseAI Domain Policy"],
                 "execution_trace": [{
                     "step_id": 1,
-                    "name": "Out-of-Domain Guardrail",
-                    "agent_name": "Agricultural Advisor",
-                    "model_name": "FarmwiseAI Safety Guardrail",
-                    "task_type": "CONVERSATIONAL",
+                    "name": "Agricultural Domain Classification",
+                    "agent_name": "Agricultural Intent Guard",
+                    "model_name": "FarmwiseAI Domain Classifier",
+                    "task_type": "DOMAIN_RESTRICTION",
                     "input_summary": query,
-                    "output_summary": "Non-agricultural query politely redirected to agricultural assistance",
+                    "output_summary": "Unrelated non-agricultural query safely intercepted and redirected to farming",
                     "confidence": 0.99,
-                    "latency_ms": 10,
+                    "latency_ms": 12,
                     "cost_usd": 0.0,
                     "status": "completed"
                 }]
