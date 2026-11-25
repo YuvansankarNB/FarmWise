@@ -8,23 +8,27 @@ import { Layers, ZoomIn, ZoomOut, RotateCcw, Eye, ShieldCheck, AlertCircle, Spar
 // Green: Healthy, Yellow: Moderate, Red: Critical, Orange: Not Verified, Dark red: Disease Detected
 function createCropMarkerIcon(emoji, statusColor, isSelected) {
   const borderStyle = isSelected ? 'border: 3px solid #facc15; transform: scale(1.3); z-index: 1000;' : 'border: 2px solid white;';
+  const displayEmoji = emoji || '🌱';
+  const bgColor = statusColor || '#10b981';
+
   return new L.DivIcon({
     className: 'custom-crop-marker',
     html: `
       <div style="
-        background-color: ${statusColor || '#10b981'};
+        background-color: ${bgColor};
         width: 34px;
         height: 34px;
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.45);
         font-size: 16px;
+        line-height: 1;
         transition: all 0.2s ease;
         ${borderStyle}
       ">
-        ${emoji || '🌱'}
+        <span style="display:inline-block; user-select:none;">${displayEmoji}</span>
       </div>
     `,
     iconSize: [34, 34],
@@ -159,12 +163,12 @@ export default function AdminCropMap({
         )}
 
         {/* Interactive Crop Markers */}
-        {markers.map((m) => {
+        {markers.filter(m => m && m.lat && m.lng && !isNaN(m.lat) && !isNaN(m.lng)).map((m) => {
           const isSelected = selectedRecord?.id === m.id;
           return (
             <Marker
-              key={m.id}
-              position={[m.lat, m.lng]}
+              key={m.id || `marker-${m.lat}-${m.lng}`}
+              position={[Number(m.lat), Number(m.lng)]}
               icon={createCropMarkerIcon(m.crop_emoji, m.marker_color || m.crop_color, isSelected)}
               eventHandlers={{
                 click: () => handleMarkerClick(m)
