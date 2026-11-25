@@ -273,14 +273,7 @@ export default function AdminDashboard({ onBackToFarmerView = () => {} }) {
           totalMatches={markersData.total_matches}
         />
 
-        {/* 2. Admin Smart Alert KPI Cards (Feature 3) */}
-        <AdminAlertCards
-          alerts={overviewData.alerts || overviewData.summary || {}}
-          selectedFilters={selectedFilters}
-          onSelectAlertFilter={(key, val) => handleFilterChange({ [key]: val })}
-        />
-
-        {/* 3. Interactive GIS Cadastral Map with Crop Symbols & Status Colors */}
+        {/* 2. Interactive GIS Cadastral Map with Crop Symbols & Status Colors */}
         <div id="admin-crop-gis-map" className="space-y-2 scroll-mt-24">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">

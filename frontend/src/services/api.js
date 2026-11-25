@@ -1333,8 +1333,10 @@ If the question is in English, reply in English.`;
       crops: ["Rice (Paddy)", "Coconut", "Maize", "Banana", "Sugarcane", "Groundnut", "Sorghum", "Cassava", "Marigold"],
       seasons: ["Rabi (Navarai / Winter)", "Kharif (Kuruvai / Samba)"],
       stages: ["vegetation", "full_growth", "flowering", "sown", "harvesting"],
-      health_statuses: ["Healthy", "Moderate", "Critical"],
-      verification_statuses: ["Verified", "Pending Review", "Unverified"],
+      health_statuses: ["Healthy", "Moderate", "Critical", "Health Data Unavailable"],
+      verification_statuses: ["Verified", "Verification Required", "Rejected", "Not Verified"],
+      disease_statuses: ["Disease Detected", "Pest Detected", "No Disease Detected", "Diagnosis Pending"],
+      priority_levels: ["HIGH", "MEDIUM", "LOW"],
       crop_metadata: {
         "Rice (Paddy)": { emoji: "🌾", color: "#16a34a" },
         "Coconut": { emoji: "🥥", color: "#0d9488" },
@@ -1350,9 +1352,9 @@ If the question is in English, reply in English.`;
     try {
       const params = new URLSearchParams();
       Object.entries(filters).forEach(([k, v]) => {
-        if (v && v !== 'ALL') params.append(k, v);
+        if (v && v !== 'ALL' && v !== 'All' && v !== 'All Records') params.append(k, v);
       });
-      const res = await axios.get(`${API_BASE}/admin/crop-monitoring/overview?${params.toString()}`, { timeout: 6000 });
+      const res = await axios.get(`${API_BASE}/admin/crop-monitoring/overview?${params.toString()}`, { timeout: 15000 });
       if (res.data) return res.data;
     } catch (e) {
       console.warn("Failed fetching crop monitoring overview:", e);
@@ -1415,7 +1417,7 @@ If the question is in English, reply in English.`;
     } catch (e) {
       console.warn("Failed fetching crop monitoring markers from backend, falling back to mock dataset:", e);
     }
-    // Fallback: Generate representative sample markers so the map is never empty
+    // Fallback: Generate representative sample markers and populate fallback table records
     const mockCrops = [
       { crop: 'Rice (Paddy)', emoji: '🌾', color: '#16a34a' },
       { crop: 'Coconut', emoji: '🥥', color: '#0d9488' },
@@ -1437,18 +1439,22 @@ If the question is in English, reply in English.`;
       const healthScore = isCritical ? 42 : (isModerate ? 68 : 91);
       const healthStatus = isCritical ? 'Critical' : (isModerate ? 'Moderate' : 'Healthy');
       const priority = isCritical ? 'HIGH' : (isModerate ? 'MEDIUM' : 'LOW');
-      const verStatus = i % 4 === 0 ? 'Not Verified' : (i % 8 === 0 ? 'Verification Required' : 'Verified');
+      const verStatus = i % 4 === 0 ? 'Not Verified' : (i % 8 === 0 ? 'Verification Required' : (i % 12 === 0 ? 'Rejected' : 'Verified'));
       fallbackMarkers.push({
         id: `MOCK-CR-${1000 + i}`,
         parcel_id: `TN-TNK-SIV-${100 + i}`,
         survey_number: `${1400 + i}`,
         sub_division: `${(i % 3) + 1}`,
         village: 'Sivagiri',
+        village_name: 'Sivagiri',
         taluk: 'Sivagiri',
         district: 'Tenkasi',
+        latitude: baseLat + ((i % 8) - 4) * 0.0035 + (Math.sin(i) * 0.001),
+        longitude: baseLng + (Math.floor(i / 8) - 2) * 0.004 + (Math.cos(i) * 0.001),
         lat: baseLat + ((i % 8) - 4) * 0.0035 + (Math.sin(i) * 0.001),
         lng: baseLng + (Math.floor(i / 8) - 2) * 0.004 + (Math.cos(i) * 0.001),
         crop: c.crop,
+        crop_name: c.crop,
         crop_emoji: c.emoji,
         crop_color: c.color,
         marker_color: isCritical ? '#ef4444' : (verStatus !== 'Verified' ? '#f97316' : (isModerate ? '#eab308' : '#10b981')),
@@ -1464,6 +1470,8 @@ If the question is in English, reply in English.`;
         farmer_name_masked: `K. M****`
       });
     }
+    // Store in global fallback cache so getCropMonitoringRecords can synchronize with it
+    window.__FALLBACK_CROP_RECORDS__ = fallbackMarkers;
     return {
       total_matches: fallbackMarkers.length,
       rendered_count: fallbackMarkers.length,
@@ -1491,23 +1499,52 @@ If the question is in English, reply in English.`;
       params.append('page', page);
       params.append('page_size', pageSize);
       Object.entries(filters).forEach(([k, v]) => {
-        if (v && v !== 'ALL') params.append(k, v);
+        if (v && v !== 'ALL' && v !== 'All' && v !== 'All Records') params.append(k, v);
       });
-      const res = await axios.get(`${API_BASE}/admin/crop-monitoring/records?${params.toString()}`, { timeout: 8000 });
+      const res = await axios.get(`${API_BASE}/admin/crop-monitoring/records?${params.toString()}`, { timeout: 15000 });
       if (res.data) return res.data;
     } catch (e) {
       console.warn("Failed fetching paginated crop records:", e);
     }
-    return { total_count: 0, page, page_size: pageSize, total_pages: 1, records: [] };
+    // If backend timed out or failed, return matching records from the fallback dataset
+    const fallbackList = (typeof window !== 'undefined' && window.__FALLBACK_CROP_RECORDS__) || [];
+    let filtered = fallbackList;
+    if (filters.district && filters.district !== 'ALL') {
+      filtered = filtered.filter(r => (r.district || '').toLowerCase() === filters.district.toLowerCase());
+    }
+    if (filters.crop && filters.crop !== 'ALL') {
+      filtered = filtered.filter(r => (r.crop || r.crop_name || '').toLowerCase() === filters.crop.toLowerCase());
+    }
+    if (filters.verification && filters.verification !== 'ALL' && filters.verification !== 'All Records') {
+      filtered = filtered.filter(r => (r.verification_status || '').toLowerCase() === filters.verification.toLowerCase());
+    }
+    if (filters.health && filters.health !== 'ALL') {
+      filtered = filtered.filter(r => (r.health_status || '').toLowerCase() === filters.health.toLowerCase());
+    }
+    if (filters.disease && filters.disease !== 'ALL' && filters.disease !== 'All') {
+      filtered = filtered.filter(r => (r.disease_status || '').toLowerCase() === filters.disease.toLowerCase());
+    }
+    if (filters.priority && filters.priority !== 'ALL' && filters.priority !== 'All') {
+      filtered = filtered.filter(r => (r.priority || '').toLowerCase() === filters.priority.toLowerCase());
+    }
+    const startIdx = (page - 1) * pageSize;
+    const paged = filtered.slice(startIdx, startIdx + pageSize);
+    return {
+      total_count: filtered.length,
+      page,
+      page_size: pageSize,
+      total_pages: Math.ceil(filtered.length / pageSize) || 1,
+      records: paged
+    };
   },
 
   async getCropMonitoringAlerts(filters = {}) {
     try {
       const params = new URLSearchParams();
       Object.entries(filters).forEach(([k, v]) => {
-        if (v && v !== 'ALL') params.append(k, v);
+        if (v && v !== 'ALL' && v !== 'All' && v !== 'All Records') params.append(k, v);
       });
-      const res = await axios.get(`${API_BASE}/admin/crop-monitoring/alerts?${params.toString()}`, { timeout: 6000 });
+      const res = await axios.get(`${API_BASE}/admin/crop-monitoring/alerts?${params.toString()}`, { timeout: 15000 });
       if (res.data) return res.data;
     } catch (e) {
       console.warn("Failed fetching crop monitoring alerts:", e);

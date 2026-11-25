@@ -211,7 +211,7 @@ export default function AdminFilterToolbar({
             className="w-full py-1.5 px-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
           >
             <option value="ALL">All Verification</option>
-            {verification_statuses.filter(v => v !== 'All Records').map((v) => (
+            {['Verified', 'Verification Required', 'Rejected', 'Not Verified'].map((v) => (
               <option key={v} value={v}>{v}</option>
             ))}
           </select>
