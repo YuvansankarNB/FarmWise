@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { 
   MapPin, ShieldCheck, Filter, Layers, BarChart3, Database, 
-  RotateCcw, Sparkles, RefreshCw, FileText, ArrowLeft, TrendingUp 
+  RotateCcw, Sparkles, RefreshCw, FileText, ArrowLeft, TrendingUp, AlertTriangle 
 } from 'lucide-react';
 import { api } from '../services/api';
 import AdminFilterToolbar from './AdminFilterToolbar';
+import AdminAlertCards from './AdminAlertCards';
 import AdminCropMap from './AdminCropMap';
 import AdminStatsOverview from './AdminStatsOverview';
 import AdminRecordTable from './AdminRecordTable';
@@ -22,7 +23,9 @@ export default function AdminDashboard({ onBackToFarmerView = () => {} }) {
     season: 'ALL',
     stage: 'ALL',
     health: 'ALL',
-    verification: 'ALL'
+    verification: 'ALL',
+    disease: 'ALL',
+    priority: 'ALL'
   });
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -120,7 +123,9 @@ export default function AdminDashboard({ onBackToFarmerView = () => {} }) {
       season: 'ALL',
       stage: 'ALL',
       health: 'ALL',
-      verification: 'ALL'
+      verification: 'ALL',
+      disease: 'ALL',
+      priority: 'ALL'
     });
     setSearchQuery('');
     setCurrentPage(1);
@@ -217,7 +222,14 @@ export default function AdminDashboard({ onBackToFarmerView = () => {} }) {
           totalMatches={markersData.total_matches}
         />
 
-        {/* 2. Interactive GIS Cadastral Map with Crop Symbols */}
+        {/* 2. Admin Smart Alert KPI Cards (Feature 3) */}
+        <AdminAlertCards
+          alerts={overviewData.alerts || overviewData.summary || {}}
+          selectedFilters={selectedFilters}
+          onSelectAlertFilter={(key, val) => handleFilterChange({ [key]: val })}
+        />
+
+        {/* 3. Interactive GIS Cadastral Map with Crop Symbols & Status Colors */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">

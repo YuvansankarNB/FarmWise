@@ -53,13 +53,14 @@ export default function AdminRecordTable({
         <table className="w-full text-left border-collapse text-xs">
           <thead>
             <tr className="bg-slate-50/70 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
-              <th className="py-3 px-4">Record ID</th>
+              <th className="py-3 px-4">Priority</th>
+              <th className="py-3 px-4">Record / Parcel</th>
               <th className="py-3 px-4">Survey / Sub</th>
               <th className="py-3 px-4">Village &amp; Taluk</th>
               <th className="py-3 px-4">Crop</th>
               <th className="py-3 px-4">Area</th>
-              <th className="py-3 px-4">Stage</th>
               <th className="py-3 px-4">Health Condition</th>
+              <th className="py-3 px-4">Disease / Pest</th>
               <th className="py-3 px-4">Verification</th>
               <th className="py-3 px-4 text-right">Actions</th>
             </tr>
@@ -71,8 +72,22 @@ export default function AdminRecordTable({
                 className="hover:bg-slate-50/80 transition-colors cursor-pointer group"
                 onClick={() => onSelectRecord(r)}
               >
+                {/* Priority Badge */}
+                <td className="py-3 px-4">
+                  <span className={`inline-flex items-center gap-1 font-black text-[10px] px-2 py-0.5 rounded-md ${
+                    r.priority === 'HIGH'
+                      ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                      : r.priority === 'MEDIUM'
+                      ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                      : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                  }`}>
+                    {r.priority === 'HIGH' ? '🔴 HIGH' : r.priority === 'MEDIUM' ? '🟡 MED' : '🟢 LOW'}
+                  </span>
+                </td>
+
                 <td className="py-3 px-4 font-mono font-bold text-slate-900">
-                  {r.id}
+                  <div>{r.id}</div>
+                  <div className="text-[10px] font-normal text-slate-400">{r.parcel_id}</div>
                 </td>
                 <td className="py-3 px-4 font-mono">
                   <span className="font-semibold text-slate-900">#{r.survey_number}</span>
@@ -91,24 +106,34 @@ export default function AdminRecordTable({
                 <td className="py-3 px-4 font-semibold text-slate-900">
                   {r.area_acres} ac
                 </td>
-                <td className="py-3 px-4 capitalize font-medium text-slate-700">
-                  {r.crop_stage}
-                </td>
                 <td className="py-3 px-4">
                   <span className={`inline-flex items-center gap-1 font-semibold ${
-                    r.health_score >= 85 ? 'text-emerald-700' : r.health_score >= 75 ? 'text-amber-700' : 'text-rose-700'
+                    r.health_score === null 
+                      ? 'text-slate-500' 
+                      : r.health_score >= 80 
+                      ? 'text-emerald-700' 
+                      : r.health_score >= 50 
+                      ? 'text-amber-700' 
+                      : 'text-rose-700'
                   }`}>
-                    <span>{r.health_score}%</span>
+                    <span>{r.health_score !== null ? `${r.health_score}%` : 'N/A'}</span>
                     <span className="text-[10px] text-slate-400">({r.health_status})</span>
+                  </span>
+                </td>
+                <td className="py-3 px-4">
+                  <span className={`text-[11px] font-medium ${
+                    r.disease_status === 'No Disease Detected' ? 'text-slate-600' : 'text-rose-700 font-bold'
+                  }`}>
+                    {r.disease_status || 'None'}
                   </span>
                 </td>
                 <td className="py-3 px-4">
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                     r.verification_status === 'Verified'
                       ? 'bg-emerald-100 text-emerald-800'
-                      : r.verification_status === 'Pending Review'
-                      ? 'bg-amber-100 text-amber-800'
-                      : 'bg-rose-100 text-rose-800'
+                      : r.verification_status === 'Rejected'
+                      ? 'bg-slate-200 text-slate-800'
+                      : 'bg-orange-100 text-orange-800'
                   }`}>
                     {r.verification_status}
                   </span>
@@ -123,7 +148,7 @@ export default function AdminRecordTable({
                     title="View details"
                   >
                     <Eye className="w-3.5 h-3.5" />
-                    <span>View</span>
+                    <span>View / Action</span>
                   </button>
                 </td>
               </tr>
@@ -131,7 +156,7 @@ export default function AdminRecordTable({
 
             {records.length === 0 && (
               <tr>
-                <td colSpan={9} className="text-center py-8 text-slate-400">
+                <td colSpan={10} className="text-center py-8 text-slate-400">
                   No crop cultivation records matching the current filters.
                 </td>
               </tr>

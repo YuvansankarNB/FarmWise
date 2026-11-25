@@ -68,6 +68,83 @@ CROP_COLOR_MAP = {
 }
 
 
+# Threshold configurations
+HEALTH_THRESHOLDS = {
+    "HEALTHY_MIN": 80,
+    "MODERATE_MIN": 50
+}
+
+def classify_health(score: Optional[int]) -> str:
+    """Classifies crop health score into standard categories without treating None as Healthy."""
+    if score is None:
+        return "Health Data Unavailable"
+    if score >= HEALTH_THRESHOLDS["HEALTHY_MIN"]:
+        return "Healthy"
+    if score >= HEALTH_THRESHOLDS["MODERATE_MIN"]:
+        return "Moderate"
+    return "Critical"
+
+def compute_priority(health_status: str, disease_status: str, verification_status: str, health_score: Optional[int]) -> Dict[str, Any]:
+    """
+    Transparent priority classification:
+    HIGH: Critical crop health OR confirmed serious disease/pest detection.
+    MEDIUM: Moderate crop health OR pending verification/review OR diagnosis pending.
+    LOW: Healthy and verified without unresolved alerts.
+    """
+    reasons = []
+    is_high = False
+    is_medium = False
+
+    # Check high priority triggers
+    if health_status == "Critical" or (health_score is not None and health_score < HEALTH_THRESHOLDS["MODERATE_MIN"]):
+        is_high = True
+        reasons.append(f"Critical crop health score ({health_score}%)")
+
+    if disease_status in ["Disease Detected", "Pest Detected"]:
+        is_high = True
+        reasons.append(f"Active infestation: {disease_status}")
+    elif "alert" in disease_status.lower() or "blight" in disease_status.lower() or "pest" in disease_status.lower():
+        is_high = True
+        reasons.append(f"Urgent agricultural distress: {disease_status}")
+
+    if is_high:
+        return {
+            "priority": "HIGH",
+            "priority_color": "#dc2626", # Red
+            "priority_reason": "; ".join(reasons) if reasons else "Critical agricultural condition"
+        }
+
+    # Check medium priority triggers
+    if health_status == "Moderate":
+        is_medium = True
+        reasons.append("Moderate crop vigor requiring monitoring")
+    elif health_status == "Health Data Unavailable":
+        is_medium = True
+        reasons.append("Missing crop health telemetry")
+
+    if verification_status in ["Not Verified", "Unverified", "Pending Review", "Verification Required"]:
+        is_medium = True
+        reasons.append("Cadastral verification pending administrative review")
+
+    if disease_status == "Diagnosis Pending":
+        is_medium = True
+        reasons.append("Pathogen laboratory diagnosis pending")
+
+    if is_medium:
+        return {
+            "priority": "MEDIUM",
+            "priority_color": "#d97706", # Amber
+            "priority_reason": "; ".join(reasons) if reasons else "Condition requiring follow-up"
+        }
+
+    # Low priority
+    return {
+        "priority": "LOW",
+        "priority_color": "#16a34a", # Green
+        "priority_reason": "Healthy crop with verified cadastral boundaries and no active alerts"
+    }
+
+
 class CropMonitoringService:
     _instance = None
 
@@ -138,17 +215,32 @@ class CropMonitoringService:
                     # Cultivated Area (Acres) - realistic deterministic based on parcel
                     area_acres = round(0.5 + (hash_int % 50) * 0.1, 2)
 
-                    # Health score & status
-                    health_score = int(65 + (hash_int % 32))  # 65 to 96
-                    if health_score >= 85:
-                        health_status = "Healthy"
-                        disease_status = "None Detected"
-                    elif health_score >= 75:
-                        health_status = "Moderate"
-                        disease_status = "Mild Moisture / Nitrogen Stress"
-                    else:
+                    # Health score & status - using configurable thresholds & realistic variations
+                    # Some records have missing health data, critical health, or moderate health
+                    health_mod = hash_int % 100
+                    if health_mod < 4:
+                        health_score = None # Missing health data test case
+                        health_status = "Health Data Unavailable"
+                    elif health_mod < 18:
+                        health_score = int(32 + (hash_int % 17)) # 32 to 48: Critical
                         health_status = "Critical"
-                        disease_status = "Pest / Foliar Blight Alert"
+                    elif health_mod < 55:
+                        health_score = int(52 + (hash_int % 27)) # 52 to 78: Moderate
+                        health_status = "Moderate"
+                    else:
+                        health_score = int(80 + (hash_int % 19)) # 80 to 98: Healthy
+                        health_status = "Healthy"
+
+                    # Disease / Pest status
+                    disease_mod = hash_int % 50
+                    if disease_mod < 5:
+                        disease_status = "Disease Detected"
+                    elif disease_mod < 10:
+                        disease_status = "Pest Detected"
+                    elif disease_mod < 14:
+                        disease_status = "Diagnosis Pending"
+                    else:
+                        disease_status = "No Disease Detected"
 
                     # Season determination based on rabi classification
                     rabi_cls = str(row.get("rabi_crop_classification", "Cereals"))
@@ -167,8 +259,37 @@ class CropMonitoringService:
                     sowing_date = "2024-09-15"
                     expected_harvest = "2025-01-20" if "rice" in crop_name.lower() else ("2025-02-15" if "maize" in crop_name.lower() else "Perennial / Year-Round")
 
-                    # Verification status
-                    verification_status = "Verified" if idx % 5 != 0 else ("Unverified" if idx % 10 == 0 else "Pending Review")
+                    # Verification status: Verified, Not Verified, Rejected, Verification Required
+                    v_mod = idx % 20
+                    if v_mod == 0:
+                        verification_status = "Rejected"
+                    elif v_mod < 5:
+                        verification_status = "Verification Required"
+                    elif v_mod < 8:
+                        verification_status = "Not Verified"
+                    else:
+                        verification_status = "Verified"
+
+                    # Priority classification
+                    prio_info = compute_priority(
+                        health_status=health_status,
+                        disease_status=disease_status,
+                        verification_status=verification_status,
+                        health_score=health_score
+                    )
+
+                    # Marker color indicator based on status rules
+                    # Green: Healthy, Yellow: Moderate, Red: Critical, Orange: Not Verified / Verification Required, Dark red: Disease / Pest Detected
+                    if disease_status in ["Disease Detected", "Pest Detected"]:
+                        marker_color = "#991b1b" # Dark Red
+                    elif health_status == "Critical":
+                        marker_color = "#ef4444" # Red
+                    elif verification_status in ["Not Verified", "Verification Required"]:
+                        marker_color = "#f97316" # Orange
+                    elif health_status == "Moderate":
+                        marker_color = "#eab308" # Yellow
+                    else:
+                        marker_color = "#16a34a" # Green
 
                     rec = {
                         "id": rec_id,
@@ -189,6 +310,7 @@ class CropMonitoringService:
                         "crop_stage": crop_stage,
                         "crop_emoji": CROP_EMOJI_MAP.get(crop_name, "🌱"),
                         "crop_color": CROP_COLOR_MAP.get(crop_name, "#10b981"),
+                        "marker_color": marker_color,
                         "area_acres": area_acres,
                         "season": season,
                         "planting_date": sowing_date,
@@ -198,6 +320,10 @@ class CropMonitoringService:
                         "disease_status": disease_status,
                         "last_updated": timestamp_str,
                         "verification_status": verification_status,
+                        "priority": prio_info["priority"],
+                        "priority_color": prio_info["priority_color"],
+                        "priority_reason": prio_info["priority_reason"],
+                        "alert_reviewed": False,
                         "image_path": str(row.get("image_path")) if pd.notna(row.get("image_path")) else None
                     }
                     records.append(rec)
@@ -229,8 +355,12 @@ class CropMonitoringService:
         crops = sorted(list(set(r["crop_name"] for r in self.crop_records if r.get("crop_name"))))
         seasons = sorted(list(set(r["season"] for r in self.crop_records if r.get("season"))))
         stages = sorted(list(set(r["crop_stage"] for r in self.crop_records if r.get("crop_stage"))))
-        health_statuses = ["Healthy", "Moderate", "Critical"]
-        verification_statuses = ["Verified", "Pending Review", "Unverified"]
+        
+        # Feature 3 Standardized Options
+        health_statuses = ["Healthy", "Moderate", "Critical", "Health Data Unavailable"]
+        verification_statuses = ["All Records", "Not Verified", "Verified", "Rejected", "Verification Required"]
+        disease_statuses = ["All", "Disease Detected", "Pest Detected", "No Disease Detected", "Diagnosis Pending"]
+        priority_levels = ["All", "HIGH", "MEDIUM", "LOW"]
 
         return {
             "districts": districts,
@@ -241,6 +371,8 @@ class CropMonitoringService:
             "stages": stages,
             "health_statuses": health_statuses,
             "verification_statuses": verification_statuses,
+            "disease_statuses": disease_statuses,
+            "priority_levels": priority_levels,
             "crop_metadata": {
                 crop: {
                     "emoji": CROP_EMOJI_MAP.get(crop, "🌱"),
@@ -260,6 +392,8 @@ class CropMonitoringService:
         stage: Optional[str] = None,
         health: Optional[str] = None,
         verification: Optional[str] = None,
+        disease: Optional[str] = None,
+        priority: Optional[str] = None,
         search: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         self.initialize()
@@ -279,8 +413,12 @@ class CropMonitoringService:
             results = [r for r in results if r["crop_stage"].lower() == stage.lower()]
         if health and health != "ALL":
             results = [r for r in results if r["health_status"].lower() == health.lower()]
-        if verification and verification != "ALL":
+        if verification and verification != "ALL" and verification != "All Records":
             results = [r for r in results if r["verification_status"].lower() == verification.lower()]
+        if disease and disease != "ALL" and disease != "All":
+            results = [r for r in results if r["disease_status"].lower() == disease.lower()]
+        if priority and priority != "ALL" and priority != "All":
+            results = [r for r in results if r["priority"].lower() == priority.lower()]
         if search and search.strip():
             q = search.strip().lower()
             results = [
@@ -303,7 +441,9 @@ class CropMonitoringService:
         season: Optional[str] = None,
         stage: Optional[str] = None,
         health: Optional[str] = None,
-        verification: Optional[str] = None
+        verification: Optional[str] = None,
+        disease: Optional[str] = None,
+        priority: Optional[str] = None
     ) -> Dict[str, Any]:
         records = self.filter_records(
             district=district,
@@ -313,7 +453,9 @@ class CropMonitoringService:
             season=season,
             stage=stage,
             health=health,
-            verification=verification
+            verification=verification,
+            disease=disease,
+            priority=priority
         )
 
         total_records = len(records)
@@ -324,6 +466,15 @@ class CropMonitoringService:
         villages_covered = len(set(r["village_name"] for r in records if r["village_name"]))
         verified_count = sum(1 for r in records if r["verification_status"] == "Verified")
         unverified_count = sum(1 for r in records if r["verification_status"] != "Verified")
+
+        # Smart Alert KPI Card Calculations (respecting active filters)
+        pending_verification = sum(1 for r in records if r["verification_status"] in ["Not Verified", "Verification Required", "Pending Review"])
+        critical_crops = sum(1 for r in records if r["health_status"] == "Critical")
+        disease_detected_parcels = sum(1 for r in records if r["disease_status"] in ["Disease Detected", "Pest Detected"])
+        high_priority_parcels = sum(1 for r in records if r["priority"] == "HIGH")
+        moderate_health_parcels = sum(1 for r in records if r["health_status"] == "Moderate")
+        healthy_parcels = sum(1 for r in records if r["health_status"] == "Healthy")
+        health_unavailable = sum(1 for r in records if r["health_status"] == "Health Data Unavailable")
 
         # Distributions for charts
         crop_area: Dict[str, float] = {}
@@ -358,6 +509,18 @@ class CropMonitoringService:
             st = r["crop_stage"]
             stage_distribution[st] = stage_distribution.get(st, 0) + 1
 
+        # Priority distribution
+        priority_distribution: Dict[str, int] = {}
+        for r in records:
+            p = r["priority"]
+            priority_distribution[p] = priority_distribution.get(p, 0) + 1
+
+        # Disease distribution
+        disease_distribution: Dict[str, int] = {}
+        for r in records:
+            dis = r["disease_status"]
+            disease_distribution[dis] = disease_distribution.get(dis, 0) + 1
+
         return {
             "summary": {
                 "total_crop_records": total_records,
@@ -368,7 +531,24 @@ class CropMonitoringService:
                 "villages_covered": villages_covered,
                 "verified_records": verified_count,
                 "unverified_records": unverified_count,
-                "verification_rate_pct": round((verified_count / total_records * 100), 1) if total_records > 0 else 0
+                "verification_rate_pct": round((verified_count / total_records * 100), 1) if total_records > 0 else 0,
+                # Smart Alerts KPI statistics
+                "total_pending_verification": pending_verification,
+                "total_critical_crops": critical_crops,
+                "total_disease_detected": disease_detected_parcels,
+                "total_high_priority": high_priority_parcels,
+                "total_moderate_health": moderate_health_parcels,
+                "total_healthy": healthy_parcels,
+                "total_health_unavailable": health_unavailable
+            },
+            "alerts": {
+                "pending_verification": pending_verification,
+                "critical_crops": critical_crops,
+                "disease_detected": disease_detected_parcels,
+                "high_priority": high_priority_parcels,
+                "moderate_health": moderate_health_parcels,
+                "healthy_crops": healthy_parcels,
+                "health_unavailable": health_unavailable
             },
             "charts": {
                 "crop_cultivated_area": [
@@ -408,6 +588,8 @@ class CropMonitoringService:
         stage: Optional[str] = None,
         health: Optional[str] = None,
         verification: Optional[str] = None,
+        disease: Optional[str] = None,
+        priority: Optional[str] = None,
         limit: int = 1500
     ) -> Dict[str, Any]:
         records = self.filter_records(
@@ -418,7 +600,9 @@ class CropMonitoringService:
             season=season,
             stage=stage,
             health=health,
-            verification=verification
+            verification=verification,
+            disease=disease,
+            priority=priority
         )
 
         # Slice to limit for optimal GIS rendering
@@ -439,11 +623,16 @@ class CropMonitoringService:
                 "crop": r["crop_name"],
                 "crop_emoji": r["crop_emoji"],
                 "crop_color": r["crop_color"],
+                "marker_color": r.get("marker_color", "#10b981"),
                 "crop_stage": r["crop_stage"],
                 "health_status": r["health_status"],
                 "health_score": r["health_score"],
+                "disease_status": r.get("disease_status", "No Disease Detected"),
                 "area_acres": r["area_acres"],
                 "verification_status": r["verification_status"],
+                "priority": r.get("priority", "LOW"),
+                "priority_color": r.get("priority_color", "#16a34a"),
+                "priority_reason": r.get("priority_reason", ""),
                 "farmer_name_masked": r["farmer_name_masked"]
             })
 
@@ -488,7 +677,10 @@ class CropMonitoringService:
         stage: Optional[str] = None,
         health: Optional[str] = None,
         verification: Optional[str] = None,
-        search: Optional[str] = None
+        disease: Optional[str] = None,
+        priority: Optional[str] = None,
+        search: Optional[str] = None,
+        sort_by: Optional[str] = "priority"
     ) -> Dict[str, Any]:
         records = self.filter_records(
             district=district,
@@ -499,8 +691,19 @@ class CropMonitoringService:
             stage=stage,
             health=health,
             verification=verification,
+            disease=disease,
+            priority=priority,
             search=search
         )
+
+        # Priority-based sorting (HIGH -> MEDIUM -> LOW) or requested sort
+        if sort_by == "priority":
+            prio_order = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
+            records = sorted(records, key=lambda x: (prio_order.get(x.get("priority", "LOW"), 3), -(x.get("health_score") or 0)))
+        elif sort_by == "health_asc":
+            records = sorted(records, key=lambda x: (x.get("health_score") is None, x.get("health_score") or 0))
+        elif sort_by == "area_desc":
+            records = sorted(records, key=lambda x: -x.get("area_acres", 0))
 
         total_count = len(records)
         start_idx = (page - 1) * page_size
@@ -532,13 +735,36 @@ class CropMonitoringService:
 
         # Record changes in audit log
         changes = {}
-        for key in ["crop_name", "crop_stage", "area_acres", "health_status", "verification_status", "disease_status"]:
+        for key in ["crop_name", "crop_stage", "area_acres", "health_status", "verification_status", "disease_status", "alert_reviewed"]:
             if key in update_data and update_data[key] is not None:
                 old_val = rec.get(key)
                 new_val = update_data[key]
                 if old_val != new_val:
                     changes[key] = {"old": old_val, "new": new_val}
                     rec[key] = new_val
+
+        # Recalculate priority dynamically if health, disease or verification status changed
+        prio_info = compute_priority(
+            health_status=rec.get("health_status", "Healthy"),
+            disease_status=rec.get("disease_status", "No Disease Detected"),
+            verification_status=rec.get("verification_status", "Verified"),
+            health_score=rec.get("health_score")
+        )
+        rec["priority"] = prio_info["priority"]
+        rec["priority_color"] = prio_info["priority_color"]
+        rec["priority_reason"] = prio_info["priority_reason"]
+
+        # Re-evaluate marker color
+        if rec["disease_status"] in ["Disease Detected", "Pest Detected"]:
+            rec["marker_color"] = "#991b1b" # Dark Red
+        elif rec["health_status"] == "Critical":
+            rec["marker_color"] = "#ef4444" # Red
+        elif rec["verification_status"] in ["Not Verified", "Verification Required"]:
+            rec["marker_color"] = "#f97316" # Orange
+        elif rec["health_status"] == "Moderate":
+            rec["marker_color"] = "#eab308" # Yellow
+        else:
+            rec["marker_color"] = "#16a34a" # Green
 
         # Update metadata if crop changed
         if "crop_name" in changes:
@@ -548,12 +774,16 @@ class CropMonitoringService:
 
         rec["last_updated"] = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M")
 
+        reason = update_data.get("reason", "Administrative verification update")
+
         # Append to audit history
         audit_entry = {
             "id": f"AUDIT-{len(self.audit_log)+1:04d}",
             "record_id": record_id,
             "parcel_id": rec["parcel_id"],
             "admin_user": admin_user,
+            "action": update_data.get("action", "UPDATE_RECORD"),
+            "reason": reason,
             "timestamp": pd.Timestamp.now().isoformat(),
             "changes": changes
         }

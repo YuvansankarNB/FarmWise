@@ -19,6 +19,8 @@ export default function AdminFilterToolbar({
     stages = [],
     health_statuses = [],
     verification_statuses = [],
+    disease_statuses = [],
+    priority_levels = [],
     crop_metadata = {}
   } = filterOptions;
 
@@ -90,7 +92,7 @@ export default function AdminFilterToolbar({
       </div>
 
       {/* Cascading Filter Controls Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-9 gap-3">
         {/* 1. District */}
         <div>
           <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
@@ -164,41 +166,7 @@ export default function AdminFilterToolbar({
           </select>
         </div>
 
-        {/* 5. Season */}
-        <div>
-          <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
-            Season
-          </label>
-          <select
-            value={selectedFilters.season || 'ALL'}
-            onChange={(e) => onFilterChange({ season: e.target.value })}
-            className="w-full py-1.5 px-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-          >
-            <option value="ALL">All Seasons</option>
-            {seasons.map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* 6. Growth Stage */}
-        <div>
-          <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
-            Growth Stage
-          </label>
-          <select
-            value={selectedFilters.stage || 'ALL'}
-            onChange={(e) => onFilterChange({ stage: e.target.value })}
-            className="w-full py-1.5 px-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 capitalize cursor-pointer"
-          >
-            <option value="ALL">All Stages</option>
-            {stages.map((st) => (
-              <option key={st} value={st} className="capitalize">{st}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* 7. Health Status */}
+        {/* 5. Health Status */}
         <div>
           <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
             Health Condition
@@ -211,6 +179,80 @@ export default function AdminFilterToolbar({
             <option value="ALL">All Health Ratings</option>
             {health_statuses.map((h) => (
               <option key={h} value={h}>{h}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* 6. Disease & Pest Filter */}
+        <div>
+          <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
+            Disease / Pest
+          </label>
+          <select
+            value={selectedFilters.disease || 'ALL'}
+            onChange={(e) => onFilterChange({ disease: e.target.value })}
+            className="w-full py-1.5 px-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+          >
+            <option value="ALL">All Pathogen Status</option>
+            {disease_statuses.filter(d => d !== 'All').map((d) => (
+              <option key={d} value={d}>{d}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* 7. Verification Status */}
+        <div>
+          <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
+            Verification
+          </label>
+          <select
+            value={selectedFilters.verification || 'ALL'}
+            onChange={(e) => onFilterChange({ verification: e.target.value })}
+            className="w-full py-1.5 px-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+          >
+            <option value="ALL">All Verification</option>
+            {verification_statuses.filter(v => v !== 'All Records').map((v) => (
+              <option key={v} value={v}>{v}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* 8. Priority Level */}
+        <div>
+          <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
+            Alert Priority
+          </label>
+          <select
+            value={selectedFilters.priority || 'ALL'}
+            onChange={(e) => onFilterChange({ priority: e.target.value })}
+            className={`w-full py-1.5 px-2.5 border rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer ${
+              selectedFilters.priority === 'HIGH'
+                ? 'bg-rose-50 border-rose-300 text-rose-800'
+                : selectedFilters.priority === 'MEDIUM'
+                ? 'bg-amber-50 border-amber-300 text-amber-800'
+                : 'bg-slate-50 border-slate-200 text-slate-800'
+            }`}
+          >
+            <option value="ALL">All Priorities</option>
+            <option value="HIGH">🔴 HIGH Priority</option>
+            <option value="MEDIUM">🟡 MEDIUM Priority</option>
+            <option value="LOW">🟢 LOW Priority</option>
+          </select>
+        </div>
+
+        {/* 9. Season */}
+        <div>
+          <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
+            Season
+          </label>
+          <select
+            value={selectedFilters.season || 'ALL'}
+            onChange={(e) => onFilterChange({ season: e.target.value })}
+            className="w-full py-1.5 px-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+          >
+            <option value="ALL">All Seasons</option>
+            {seasons.map((s) => (
+              <option key={s} value={s}>{s}</option>
             ))}
           </select>
         </div>

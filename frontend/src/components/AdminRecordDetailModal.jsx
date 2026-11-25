@@ -19,16 +19,43 @@ export default function AdminRecordDetailModal({
     area_acres: record.area_acres,
     health_status: record.health_status,
     disease_status: record.disease_status,
-    verification_status: record.verification_status
+    verification_status: record.verification_status,
+    reason: ""
   });
+  const [rejectReasonModal, setRejectReasonModal] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState(null);
+
+  const handleQuickAction = async (actionType, additionalData = {}) => {
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        action: actionType,
+        ...additionalData
+      };
+      const res = await api.updateCropRecord(record.id, payload);
+      setSuccessMsg(`Action '${actionType}' successfully applied and logged in audit history.`);
+      onRecordUpdated(res.record);
+      setRejectReasonModal(false);
+      setTimeout(() => setSuccessMsg(null), 3500);
+    } catch (err) {
+      console.error("Action failed:", err);
+      alert("Failed to execute admin action. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleSave = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const res = await api.updateCropRecord(record.id, formData);
+      const res = await api.updateCropRecord(record.id, {
+        ...formData,
+        action: "UPDATE_RECORD",
+        reason: formData.reason || "Manual administration adjustment"
+      });
       setSuccessMsg("Crop record successfully updated and logged in administrative audit history.");
       setIsEditing(false);
       onRecordUpdated(res.record);
@@ -173,15 +200,77 @@ export default function AdminRecordDetailModal({
                 </div>
               </div>
 
+              {/* Priority & Alert Rationale */}
+              <div className="space-y-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                  <Activity className="w-3.5 h-3.5 text-rose-600" />
+                  <span>Priority Classification &amp; Triage</span>
+                </h4>
+                <div className="p-3.5 rounded-2xl border bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`px-2 py-0.5 rounded-md font-black text-[10px] uppercase ${
+                        record.priority === 'HIGH'
+                          ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                          : record.priority === 'MEDIUM'
+                          ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                          : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                      }`}>
+                        {record.priority || 'LOW'} PRIORITY
+                      </span>
+                      <span className="text-slate-500 text-[11px]">
+                        Last updated: {record.last_updated}
+                      </span>
+                    </div>
+                    <p className="text-slate-700 text-xs font-medium">
+                      <span className="font-bold">Classification Reason:</span> {record.priority_reason || 'Standard verified crop record'}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleQuickAction('MARK_REVIEWED', { alert_reviewed: true })}
+                      disabled={isSubmitting}
+                      className="px-3 py-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold cursor-pointer"
+                    >
+                      Mark Alert Reviewed
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               {/* Actions Footer */}
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleQuickAction('VERIFY_RECORD', { verification_status: 'Verified', reason: 'Field officer confirmed cultivation' })}
+                    disabled={isSubmitting || record.verification_status === 'Verified'}
+                    className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Verify Record</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setRejectReasonModal(true)}
+                    disabled={isSubmitting || record.verification_status === 'Rejected'}
+                    className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span>Reject Record</span>
+                  </button>
+                </div>
+
                 <button
                   type="button"
                   onClick={() => setIsEditing(true)}
-                  className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                  className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
                 >
                   <Edit3 className="w-3.5 h-3.5" />
-                  <span>Edit / Verify Record</span>
+                  <span>Edit Crop Information</span>
                 </button>
               </div>
             </div>
@@ -261,7 +350,9 @@ export default function AdminRecordDetailModal({
                   >
                     <option value="Verified">Verified</option>
                     <option value="Pending Review">Pending Review</option>
-                    <option value="Unverified">Unverified</option>
+                    <option value="Not Verified">Not Verified</option>
+                    <option value="Rejected">Rejected</option>
+                    <option value="Verification Required">Verification Required</option>
                   </select>
                 </div>
 
@@ -271,6 +362,17 @@ export default function AdminRecordDetailModal({
                     type="text"
                     value={formData.disease_status}
                     onChange={(e) => setFormData({ ...formData, disease_status: e.target.value })}
+                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+
+                <div className="col-span-2">
+                  <label className="text-[11px] font-bold text-slate-700 block mb-1">Adjustment Reason (Audit History Log)</label>
+                  <input
+                    type="text"
+                    placeholder="E.g. Field inspection by Revenue Inspector verified banana cultivation"
+                    value={formData.reason}
+                    onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                     className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
@@ -296,6 +398,47 @@ export default function AdminRecordDetailModal({
             </form>
           )}
         </div>
+
+        {/* Rejection Reason Modal */}
+        {rejectReasonModal && (
+          <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-2xl p-5 max-w-md w-full shadow-2xl border border-slate-200 space-y-4">
+              <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600" />
+                <span>Specify Reason for Rejection</span>
+              </h4>
+              <p className="text-xs text-slate-500">
+                The reason will be permanently recorded in the administrative audit log alongside officer credentials.
+              </p>
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="E.g. Ground survey revealed land is currently fallow; submitted photo does not match survey number boundary."
+                className="w-full h-24 p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-rose-500"
+              />
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setRejectReasonModal(false)}
+                  className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={!rejectReason.trim() || isSubmitting}
+                  onClick={() => handleQuickAction('REJECT_RECORD', { 
+                    verification_status: 'Rejected', 
+                    reason: rejectReason 
+                  })}
+                  className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold disabled:opacity-50"
+                >
+                  Confirm Rejection
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

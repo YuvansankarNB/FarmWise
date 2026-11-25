@@ -346,10 +346,13 @@ class CropRecordUpdatePayload(BaseModel):
     health_status: Optional[str] = None
     disease_status: Optional[str] = None
     verification_status: Optional[str] = None
+    alert_reviewed: Optional[bool] = None
+    action: Optional[str] = None
+    reason: Optional[str] = None
 
 @app.get("/api/admin/crop-monitoring/filters")
 def get_crop_monitoring_filters():
-    """Returns cascading filter options: districts, taluks, villages, crops, seasons, stages, health statuses."""
+    """Returns cascading filter options: districts, taluks, villages, crops, seasons, stages, health statuses, disease, and priority."""
     return crop_monitoring_service.get_filter_options()
 
 @app.get("/api/admin/crop-monitoring/overview")
@@ -361,9 +364,11 @@ def get_crop_monitoring_overview(
     season: Optional[str] = Query(default=None),
     stage: Optional[str] = Query(default=None),
     health: Optional[str] = Query(default=None),
-    verification: Optional[str] = Query(default=None)
+    verification: Optional[str] = Query(default=None),
+    disease: Optional[str] = Query(default=None),
+    priority: Optional[str] = Query(default=None)
 ):
-    """Calculates summary cards & chart distributions filtered by geographic and agronomic criteria."""
+    """Calculates summary cards, smart alert counts & chart distributions filtered by geographic and agronomic criteria."""
     return crop_monitoring_service.get_overview_statistics(
         district=district,
         taluk=taluk,
@@ -372,8 +377,30 @@ def get_crop_monitoring_overview(
         season=season,
         stage=stage,
         health=health,
-        verification=verification
+        verification=verification,
+        disease=disease,
+        priority=priority
     )
+
+@app.get("/api/admin/crop-monitoring/alerts")
+def get_crop_monitoring_alerts(
+    district: Optional[str] = Query(default=None),
+    taluk: Optional[str] = Query(default=None),
+    village: Optional[str] = Query(default=None),
+    crop: Optional[str] = Query(default=None)
+):
+    """Returns dynamic smart alert statistics respecting selected geographic filters."""
+    stats = crop_monitoring_service.get_overview_statistics(
+        district=district,
+        taluk=taluk,
+        village=village,
+        crop=crop
+    )
+    return {
+        "status": "success",
+        "alerts": stats.get("alerts", {}),
+        "total_records": stats.get("summary", {}).get("total_crop_records", 0)
+    }
 
 @app.get("/api/admin/crop-monitoring/markers")
 def get_crop_monitoring_markers(
@@ -385,9 +412,11 @@ def get_crop_monitoring_markers(
     stage: Optional[str] = Query(default=None),
     health: Optional[str] = Query(default=None),
     verification: Optional[str] = Query(default=None),
+    disease: Optional[str] = Query(default=None),
+    priority: Optional[str] = Query(default=None),
     limit: int = Query(default=1500, le=5000)
 ):
-    """Returns geo-referenced crop cultivation markers for interactive GIS visualization."""
+    """Returns geo-referenced crop cultivation markers for interactive GIS visualization with status color indicators."""
     return crop_monitoring_service.get_map_markers(
         district=district,
         taluk=taluk,
@@ -397,6 +426,8 @@ def get_crop_monitoring_markers(
         stage=stage,
         health=health,
         verification=verification,
+        disease=disease,
+        priority=priority,
         limit=limit
     )
 
@@ -420,9 +451,12 @@ def get_crop_monitoring_records(
     stage: Optional[str] = Query(default=None),
     health: Optional[str] = Query(default=None),
     verification: Optional[str] = Query(default=None),
-    search: Optional[str] = Query(default=None)
+    disease: Optional[str] = Query(default=None),
+    priority: Optional[str] = Query(default=None),
+    search: Optional[str] = Query(default=None),
+    sort_by: Optional[str] = Query(default="priority")
 ):
-    """Paginated crop cultivation records for administration, search, and audit."""
+    """Paginated crop cultivation records with priority-based sorting, search, and multi-filter support."""
     return crop_monitoring_service.get_crop_records_paginated(
         page=page,
         page_size=page_size,
@@ -434,7 +468,10 @@ def get_crop_monitoring_records(
         stage=stage,
         health=health,
         verification=verification,
-        search=search
+        disease=disease,
+        priority=priority,
+        search=search,
+        sort_by=sort_by
     )
 
 @app.get("/api/admin/crop-monitoring/records/{record_id}")
